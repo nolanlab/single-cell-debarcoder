@@ -62,7 +62,7 @@ set(handles.color_panel,'visible','off')
 set(handles.plottype,'SelectionChangeFcn',{@plot_changefcn,handles})
 set(handles.plottype,'SelectedObject',handles.colorplot)
 set(handles.color_panel,'SelectedObject',handles.color_mahal)
-set(handles.cutoff_text,'string','30')
+set(handles.cutoff_text,'string','0')
 set(handles.delta_text,'string','0.1')
 handles.sep_cutoff=0.1;
 handles.parent=gcf;
@@ -359,6 +359,14 @@ if PathName ~= 0
     deltas=bsxfun(@minus,handles.bcs,percs(1,:));
     handles.normbcs=bsxfun(@rdivide,deltas,ranges);
     
+    %temp
+%     maxs=max(handles.bcs,[],2);
+%     mins=min(handles.bcs,[],2);
+%     diffs=maxs-mins;
+% %     deltas=bsxfun(@minus,handles.bcs,mins);
+% %     handles.normbcs=bsxfun(@rdivide,deltas,diffs);
+%     %
+    
     if length(unique(sum(handles.key,2)))==1
         
         [sorted,ix]=sort(handles.normbcs,2,'descend');
@@ -433,6 +441,9 @@ if PathName ~= 0
     end
     
     handles.deltas=deltas;
+    %temp
+%     handles.deltas=deltas./diffs;
+    %
     
     code_assign=false(N,length(handles.masses));  %rows will be barcodes of each cell
     for j=1:length(handles.masses)
@@ -884,6 +895,57 @@ percs=prctile(handles.bcs,[1 99]);
 ranges=diff(percs);  %difference between 99th and 1st percentile of bc channels
 deltas=bsxfun(@minus,handles.bcs,percs(1,:));
 handles.normbcs=bsxfun(@rdivide,deltas,ranges);  %could still collect on edges (0,1)
+
+%temp
+% maxs=max(handles.bcs,[],2);
+% mins=min(handles.bcs,[],2);
+% diffs=maxs-mins;
+% % deltas=bsxfun(@minus,handles.bcs,mins);
+% % handles.normbcs=bsxfun(@rdivide,deltas,diffs);
+
+[sorted,ix]=sort(handles.normbcs,2,'descend');
+
+% to look at top k barcodes, rather than barcodes above largest separation
+numdf=sum(handles.key(1,:));  %this is how many positive we are expecting
+
+lowests=sorted(:,numdf);
+N=length(lowests);
+code_assign=false(N,length(handles.masses));  %rows will be barcodes of each cell
+for j=1:length(handles.masses)
+    % code_assign(:,j)=handles.bcs(:,j) >= lowests; %switched to normalized bcs
+    code_assign(:,j)=handles.normbcs(:,j) >= lowests; 
+end
+
+% gated=gate_bcs(code_assign,handles.x); %%replace with below using csv key
+num_codes=length(handles.wellLabels);
+length_codes=size(handles.key,2);
+handles.gated=cell(1,num_codes);
+num_cells=size(handles.bcs,1);
+
+%         handles.dump=true(num_cells,1);
+
+for i=1:num_codes
+    clust_inds=true(num_cells,1);
+    for j=1:length_codes
+        clust_inds=clust_inds & (code_assign(:,j)==handles.key(i,j));
+    end
+    handles.gated{i}=clust_inds;
+    %             handles.dump(clust_inds)=false;  %these cells are in a gate
+end
+
+
+%need to get rid of ones that aren't above actual signal cutoff
+N=size(handles.bcs,1);
+indlist=(1:N)';
+inds1=sub2ind(size(ix),indlist,ix(:,numdf));
+cutoff1=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
+toolow1=handles.bcs(inds1)<cutoff1;
+
+lowests(toolow1)=nan;
+
+deltas=sorted(:,numdf)-sorted(:,numdf+1);  %separation between 3rd and 4th highest normalized barcodes
+
+%
 
 set(handles.x_popup,'value',1)
 set(handles.y_popup,'value',1)
