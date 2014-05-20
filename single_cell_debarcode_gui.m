@@ -62,8 +62,9 @@ set(handles.color_panel,'visible','off')
 set(handles.plottype,'SelectionChangeFcn',{@plot_changefcn,handles})
 set(handles.plottype,'SelectedObject',handles.colorplot)
 set(handles.color_panel,'SelectedObject',handles.color_mahal)
-set(handles.cutoff_text,'string','30')
+set(handles.cutoff_text,'string','0')
 set(handles.delta_text,'string','0.1')
+set(handles.mahal_cutoff,'string',30)
 handles.sep_cutoff=0.1;
 handles.parent=gcf;
 
@@ -358,6 +359,13 @@ if PathName ~= 0
     ranges=diff(percs);
     deltas=bsxfun(@minus,handles.bcs,percs(1,:));
     handles.normbcs=bsxfun(@rdivide,deltas,ranges);
+    
+    %temp
+%     percs=prctile(handles.bcs(:),[1 99]);
+%     ranges=diff(percs);  %difference between 99th and 1st percentile of bc channels
+%     deltas=handles.bcs - percs(1);
+%     handles.normbcs=deltas./ranges;  %could still collect on edges (0,1)
+
     
     if length(unique(sum(handles.key,2)))==1
         
@@ -885,15 +893,32 @@ ranges=diff(percs);  %difference between 99th and 1st percentile of bc channels
 deltas=bsxfun(@minus,handles.bcs,percs(1,:));
 handles.normbcs=bsxfun(@rdivide,deltas,ranges);  %could still collect on edges (0,1)
 
+%temp
+% percs=prctile(handles.bcs(:),[1 99]);
+% ranges=diff(percs);  %difference between 99th and 1st percentile of bc channels
+% deltas=handles.bcs - percs(1);
+% handles.normbcs=deltas./ranges;  %could still collect on edges (0,1)
+
+
 set(handles.x_popup,'value',1)
 set(handles.y_popup,'value',1)
 
-set(handles.x_popup,'string',handles.m(handles.bc_cols))
-set(handles.y_popup,'string',handles.m(handles.bc_cols))
+if any(cellfun(@isempty,handles.m(handles.bc_cols)))
+    set(handles.x_popup,'string',handles.c(handles.bc_cols))
+    set(handles.y_popup,'string',handles.c(handles.bc_cols))
+else
+    set(handles.x_popup,'string',handles.m(handles.bc_cols))
+    set(handles.y_popup,'string',handles.m(handles.bc_cols))
+end
 
 handles.leg=cell(1,length(handles.masses));
 for i=1:length(handles.masses)
-    handles.leg{i}=handles.m{handles.bc_cols(i)};
+    m_i=handles.m{handles.bc_cols(i)};
+    if ~isempty(m_i)
+    handles.leg{i}=m_i;
+    else
+        handles.leg{i}=handles.c{handles.bc_cols(i)};
+    end
 end
 
 guidata(handles.parent,handles)
