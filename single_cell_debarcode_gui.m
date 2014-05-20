@@ -719,9 +719,10 @@ end
 
 %%% plot well abundances
 
-numseps=10;
+numseps=20;
 minsep=0;
-maxsep=0.5;
+% maxsep=0.5;
+maxsep=1;
 handles.seprange=linspace(minsep,maxsep,numseps);
 
 clust_size=zeros(numseps,num_codes);
@@ -734,17 +735,36 @@ end
 
 delete(tb)
 
-handles.ax=axes('parent',handles.ax_panel);
-handles.lines=plot(handles.ax,handles.seprange,clust_size);
-set(get(handles.ax,'XLabel'),'String','Minimum separation','fontsize',12)
-set(get(handles.ax,'YLabel'),'String','Number of cells','fontsize',12)
-ylabel('Number of cells','fontsize',12)
+%%% 20140520
+
+handles.ax=subplot(3,1,[1 2],'parent',handles.ax_panel);
+
+handles.lines=plot(handles.ax,handles.seprange,100/num_cells*clust_size);
+set(get(handles.ax,'XLabel'),'String','Barcode separation','fontsize',12)
+set(get(handles.ax,'YLabel'),'String','Percent of cells by well','fontsize',12)
+% ylabel('Number of cells','fontsize',12)
 
 set(handles.lines,'ButtonDownFcn',{@select_line,handles});
+% handles.ax=ax(1);
+
+
+
+ax2=subplot(3,1,3,'parent',handles.ax_panel);
+[hi,xi]=hist(handles.deltas,100);
+bar(ax2,xi,100/num_cells*hi)
+set(get(ax2,'XLabel'),'String','Barcode Separation','fontsize',12)
+set(get(ax2,'YLabel'),'String','Percent of cells','fontsize',12)
+set(ax2,'xlim',[0 1])
+shading flat
+colormap([0 0.5 0.4])
 
 drawnow
 set(gcf,'pointer','arrow')
 drawnow
+
+
+%%%
+
 
 %         mahal_threshold=30;
 %
