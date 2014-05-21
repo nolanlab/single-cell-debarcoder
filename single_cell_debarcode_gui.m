@@ -62,7 +62,7 @@ set(handles.color_panel,'visible','off')
 set(handles.plottype,'SelectionChangeFcn',{@plot_changefcn,handles})
 set(handles.plottype,'SelectedObject',handles.colorplot)
 set(handles.color_panel,'SelectedObject',handles.color_mahal)
-set(handles.cutoff_text,'string','0')
+% set(handles.cutoff_text,'string','0')
 set(handles.delta_text,'string','0.1')
 set(handles.mahal_cutoff,'string',30)
 handles.sep_cutoff=0.1;
@@ -199,18 +199,19 @@ if ~isempty(wellnum)
             handles.ax=axes('parent',handles.ax_panel);
             xcol=get(handles.x_popup,'value');
             ycol=get(handles.y_popup,'value');
-            cm=jet(64);
+            cm=hsv(64);
             hold on
             
             thiswell=handles.bcs(thiswell_bin,[xcol ycol]);
             mdists=handles.mahal(thiswell_bin);
+            
             seps=handles.deltas(thiswell_bin);
             if ~isempty(thiswell)
 
                 if get(handles.color_panel,'SelectedObject') == handles.color_mahal
                     scatter(thiswell(:,1),thiswell(:,2),4,mdists)
                     set(gca,'clim',[0 mahal_cutoff])
-                    colormap(hsv)
+                    colormap(cm)
                 else
                     scatter(thiswell(:,1),thiswell(:,2),4,seps)
                     set(gca,'clim',[sep_cutoff 0.5])
@@ -380,7 +381,8 @@ if PathName ~= 0
         N=size(handles.bcs,1);
         indlist=(1:N)';
         inds1=sub2ind(size(ix),indlist,ix(:,numdf));
-        cutoff1=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
+%         cutoff1=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
+        cutoff1=0;
         toolow1=handles.bcs(inds1)<cutoff1;
         
         lowests(toolow1)=nan;
@@ -399,8 +401,9 @@ if PathName ~= 0
         
         [~,locs]=sort(seps,2,'descend');  %locs are locations in ix of bc level that is on lower side of largest gap.  i.e., if locs is 5, the largest bc separation is between barcode ix(5) and ix(6)
         
-        cutoff=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
-        
+%         cutoff=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
+        cutoff=0;
+
         indsabove=sub2ind(size(ix),indlist,locs(:,1)+1);  %+1 so that finding the lowest "real" bc
         betws=ix(indsabove);
         indsabove=sub2ind(size(handles.bcs),indlist,betws);
@@ -618,7 +621,8 @@ if length(unique(sum(handles.key,2)))==1
     N=size(handles.bcs,1);
     indlist=(1:N)';
     inds1=sub2ind(size(ix),indlist,ix(:,numdf));
-    cutoff1=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
+%     cutoff1=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
+    cutoff1=0;
     toolow1=handles.bcs(inds1)<cutoff1;
     
     lowests(toolow1)=nan;
@@ -636,7 +640,8 @@ else
     
     [~,locs]=sort(seps,2,'descend');  %locs are locations in ix of bc level that is on lower side of largest gap.  i.e., if locs is 5, the largest bc separation is between barcode ix(5) and ix(6)
     
-    cutoff=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
+%     cutoff=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
+    cutoff=0;
     
     indsabove=sub2ind(size(ix),indlist,locs(:,1)+1);  %+1 so that finding the lowest "real" bc
     betws=ix(indsabove);
