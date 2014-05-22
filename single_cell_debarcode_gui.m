@@ -533,6 +533,10 @@ function folder_button_Callback(hObject, eventdata, handles)
 
 [files,handles.pathname] = uigetfile('*.fcs','Select fcs files to debarcode','multiselect','on');
 
+if isfield(handles,'gated')
+    handles=rmfield(handles,'gated');
+end
+
 if handles.pathname ~= 0
     
     set(gcf,'pointer','watch')
@@ -557,6 +561,8 @@ if handles.pathname ~= 0
         
         handles.current_files={files};
     end
+    
+    
     handles.c={h.par.name};
     handles.m={h.par.name2};
     
