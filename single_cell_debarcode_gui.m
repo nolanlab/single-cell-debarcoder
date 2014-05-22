@@ -22,7 +22,7 @@ function varargout = single_cell_debarcode_gui(varargin)
 
 % Edit the above text to modify the response to help single_cell_debarcode_gui
 
-% Last Modified by GUIDE v2.5 18-Oct-2012 13:31:07
+% Last Modified by GUIDE v2.5 22-May-2014 14:48:49
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -67,6 +67,11 @@ set(handles.delta_text,'string','0.1')
 set(handles.mahal_cutoff,'string',30)
 handles.sep_cutoff=0.1;
 handles.parent=gcf;
+
+
+cofactor=str2double(get(handles.cofactor,'string'));
+handles.xl=bmtrans([-20, 10000],cofactor);
+[handles.xt,handles.xtl]=transform_ticks(handles.xl,cofactor);
 
 %remove unwanted toolbar options
 set(hObject,'toolbar','figure');
@@ -147,29 +152,28 @@ if ~isempty(wellnum)
     drawnow;
     switch get(selectedobj,'string')
         case 'Color'
-            
-            xl=bmtrans([-20, 10000],5);
-            [xt,xtl]=transform_ticks(xl,5);
-            
+                   
             oldax=get(handles.ax_panel,'children');
             delete(oldax)
             
             ax=zeros(1,2);
             ax(1)=subplot(2,1,1,'parent',handles.ax_panel);
-  
+            hold on
+            
             thiswell=handles.bcs(thiswell_bin,:);
             if ~isempty(thiswell)
                 s=1:size(thiswell,1);
-                [ax,h1,h2]=plotyy(s,thiswell,s,thiswell);
+                %[ax,h1,h2]=plotyy(s,thiswell,s,thiswell);
+                plot3(s,thiswell,rand(size(s))-1,'.')
                 hold on
                 
-                set(ax,'Box','off','xtick',[],'Layer','top')
-                set(h2,'visible','off')
-                set(h1,'marker','.','linestyle','none')
-                
-                set(ax(1),'ytick',xt,'yticklabel',xtl)
+                set(ax(1),'Box','off','xtick',[],'Layer','top')
+%                 set(h2,'visible','off')
+%                 set(h1,'marker','.','linestyle','none')
+%                 
+                set(ax(1),'ytick',handles.xt,'yticklabel',handles.xtl)
                 set(get(ax(1),'Ylabel'),'String','untransformed values','fontsize',12)
-                set(get(ax(2),'Ylabel'),'String','asinh-transformed values','fontsize',12)
+                set(get(ax(1),'Ylabel'),'String','asinh-transformed values','fontsize',12)
                 
                 legend(handles.leg,'location','northeastoutside')
             end
@@ -177,12 +181,13 @@ if ~isempty(wellnum)
             
             %norm bcs
             ax(2)=subplot(2,1,2,'parent',handles.ax_panel);
+            hold on
             
             thiswell=handles.normbcs(thiswell_bin,:);
             
             if ~isempty(thiswell)
                 s=1:size(thiswell,1);
-                plot(s,thiswell,'.');
+                plot3(s,thiswell,rand(size(s)),'.');
                 
                 set(get(ax(2),'Ylabel'),'String','normalized values','fontsize',12)
                 
@@ -226,18 +231,18 @@ if ~isempty(wellnum)
                 end
                 
             end
-            xl=bmtrans([-20, 10000],5);
-            [xt,xtl]=transform_ticks(xl,5);
-            set(gca,'xlim',xl,'ylim',xl,'xtick',xt,'xticklabel',xtl,'ytick',xt,'yticklabel',xtl)
+
+            set(gca,'xlim',handles.xl,'ylim',handles.xl,...
+                'xtick',handles.xt,'xticklabel',handles.xtl,...
+                'ytick',handles.xt,'yticklabel',handles.xtl)
             title(num2str(handles.key(wellnum,:)),'fontweight','bold','fontsize',12);
             
         case 'All BC Biaxials'
             oldax=get(handles.ax_panel,'children');
             delete(oldax)
             n=size(handles.bcs,2);
-            xl=bmtrans([-20, 10000],5);
-            [xt,xtl]=transform_ticks(xl,5);
-            cm=jet(64);
+
+            cm=hsv(64);
             
             Ind=1;
             for i=0:n
@@ -263,17 +268,18 @@ if ~isempty(wellnum)
                             else
                                 scatter(thiswell(:,1),thiswell(:,2),2,seps)
                                 set(gca,'clim',[sep_cutoff 0.5])
-                                colormap(flipud(hsv))
+                                colormap(flipud(cm))
                             end
-                        end                        
-                        set(ax,'xlim',xl,'ylim',xl,'xtick',[],'ytick',[])
+                        end
+                        
+                        set(ax,'xlim',handles.xl,'ylim',handles.xl,'xtick',[],'ytick',[])
                     elseif j>0 && i==j-1 %&& any([i j])
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
                         if sum(handles.gated{wellnum}) ~= 0
                             [binsize,binloc]=hist(handles.bcs(handles.gated{wellnum} & handles.mahal<mahal_cutoff,j),100);
                             bar(binloc,binsize,'edgecolor','none','facecolor',[0 0.5 0])
                         end
-                        set(ax,'xlim',xl,'xtick',[],'ytick',[])                       
+                        set(ax,'xlim',handles.xl,'xtick',[],'ytick',[])                       
                     elseif i==n && j>0
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
                         set(ax,'visible','off')
@@ -354,7 +360,8 @@ if PathName ~= 0
     
     %% need to recompute handles.gated using all (not just sampled) cells
     %%Aug2013
-    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),5); %switching sampled bcs to full bcs
+    cofactor=str2double(get(handles.cofactor,'string'));
+    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),cofactor); %switching sampled bcs to full bcs
     
     percs=prctile(handles.bcs,[1 99]);
     ranges=diff(percs);
@@ -912,10 +919,11 @@ end
 %sample 100000 cells and use until save
 num_cells=size(handles.x,1);
 sample_size=100000;
+cofactor=str2double(get(handles.cofactor,'string'));
 if num_cells>sample_size
-    handles.bcs=bmtrans(handles.x(randsample(num_cells,sample_size),handles.bc_cols),5);
+    handles.bcs=bmtrans(handles.x(randsample(num_cells,sample_size),handles.bc_cols),cofactor);
 else
-    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),5);  %matrix of each cell's bc channels, transformed
+    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),cofactor);  %matrix of each cell's bc channels, transformed
 end
 %
 
@@ -1337,5 +1345,27 @@ f=reshape(fmat,1,MM);  %f in single vector
 denslevel=bin(GridAssign);
 
 function y=bmtrans(x,c)
-%c=5;
 y=asinh(1/c*x);
+
+
+
+function cofactor_Callback(hObject, eventdata, handles)
+% hObject    handle to cofactor (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of cofactor as text
+%        str2double(get(hObject,'String')) returns contents of cofactor as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function cofactor_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to cofactor (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
