@@ -363,17 +363,7 @@ if PathName ~= 0
     cofactor=str2double(get(handles.cofactor,'string'));
     handles.bcs=bmtrans(handles.x(:,handles.bc_cols),cofactor); %switching sampled bcs to full bcs
     
-    percs=prctile(handles.bcs,[1 99]);
-    ranges=diff(percs);
-    deltas=bsxfun(@minus,handles.bcs,percs(1,:));
-    handles.normbcs=bsxfun(@rdivide,deltas,ranges);
-    
-    %temp
-%     percs=prctile(handles.bcs(:),[1 99]);
-%     ranges=diff(percs);  %difference between 99th and 1st percentile of bc channels
-%     deltas=handles.bcs - percs(1);
-%     handles.normbcs=deltas./ranges;  %could still collect on edges (0,1)
-
+    handles.normbcs=normalize_bcs(handles.bcs);
     
     if length(unique(sum(handles.key,2)))==1
         
@@ -530,6 +520,19 @@ if PathName ~= 0
 else
     return
 end
+
+function normed_bcs = normalize_bcs(raw_bcs)
+
+percs=prctile(raw_bcs,[1 99]);
+ranges=diff(percs);
+deltas=bsxfun(@minus,raw_bcs,percs(1,:));
+normed_bcs=bsxfun(@rdivide,deltas,ranges);
+
+%temp
+% percs=prctile(raw_bcs(:),[1 99]);
+% ranges=diff(percs);  %difference between 99th and 1st percentile of bc channels
+% deltas=raw_bcs - percs(1);
+% normed_bcs=deltas./ranges;  %could still collect on edges (0,1)
 
 
 % --- Executes on button press in folder_button.
@@ -925,18 +928,8 @@ if num_cells>sample_size
 else
     handles.bcs=bmtrans(handles.x(:,handles.bc_cols),cofactor);  %matrix of each cell's bc channels, transformed
 end
-%
 
-percs=prctile(handles.bcs,[1 99]);
-ranges=diff(percs);  %difference between 99th and 1st percentile of bc channels
-deltas=bsxfun(@minus,handles.bcs,percs(1,:));
-handles.normbcs=bsxfun(@rdivide,deltas,ranges);  %could still collect on edges (0,1)
-
-%temp
-% percs=prctile(handles.bcs(:),[1 99]);
-% ranges=diff(percs);  %difference between 99th and 1st percentile of bc channels
-% deltas=handles.bcs - percs(1);
-% handles.normbcs=deltas./ranges;  %could still collect on edges (0,1)
+handles.normbcs=normalize_bcs(handles.bcs);    
 
 
 set(handles.x_popup,'value',1)
