@@ -67,11 +67,12 @@ set(handles.delta_text,'string','0.1')
 set(handles.mahal_cutoff,'string',30)
 handles.sep_cutoff=0.1;
 handles.parent=gcf;
+set(handles.parent,'WindowStyle','normal')
 
 
-cofactor=str2double(get(handles.cofactor,'string'));
-handles.xl=bmtrans([-20, 10000],cofactor);
-[handles.xt,handles.xtl]=transform_ticks(handles.xl,cofactor);
+handles.cofactor_val=str2double(get(handles.cofactor,'string'));
+handles.xl=bmtrans([-20, 10000],handles.cofactor_val);
+[handles.xt,handles.xtl]=transform_ticks(handles.xl,handles.cofactor_val);
 
 %remove unwanted toolbar options
 set(hObject,'toolbar','figure');
@@ -219,7 +220,8 @@ if ~isempty(wellnum)
                     colormap(cm)
                 else
                     scatter(thiswell(:,1),thiswell(:,2),4,seps)
-                    set(gca,'clim',[sep_cutoff 0.5])
+                    set(gca,'clim',[sep_cutoff 1])
+                    
                     colormap(flipud(hsv))
                 end
                 
@@ -267,7 +269,7 @@ if ~isempty(wellnum)
                                 colormap(hsv)
                             else
                                 scatter(thiswell(:,1),thiswell(:,2),2,seps)
-                                set(gca,'clim',[sep_cutoff 0.5])
+                                set(gca,'clim',[sep_cutoff 1])
                                 colormap(flipud(cm))
                             end
                         end
@@ -295,7 +297,7 @@ if ~isempty(wellnum)
                 cb=colorbar('position',[0.85 0.5 0.027 0.4]);
                 set(get(cb,'ylabel'),'string','Mahalanobis Distance','fontsize',14)
             else
-                set(bigax,'clim',[sep_cutoff 0.5])
+                set(bigax,'clim',[sep_cutoff 1])
                 cb=colorbar('position',[0.85 0.5 0.027 0.4]);
                 set(get(cb,'ylabel'),'string','Separation','fontsize',14)
             end
@@ -351,7 +353,7 @@ if PathName ~= 0
     set(gcf,'pointer','watch')
     drawnow
     
-    fid=fopen([PathName '/' FileName '_BarCodeList.txt'],'w');  %this is to record the barcode labels for use later with spade
+    fid=fopen([PathName filesep FileName '_BarCodeList.txt'],'w');  %this is to record the barcode labels for use later with spade
     
     wellNumbers=zeros(size(handles.x,1),1); %%%
     m=[handles.m 'barcode']; %add barcode column
@@ -360,8 +362,8 @@ if PathName ~= 0
     
     %% need to recompute handles.gated using all (not just sampled) cells
     %%Aug2013
-    cofactor=str2double(get(handles.cofactor,'string'));
-    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),cofactor); %switching sampled bcs to full bcs
+%     cofactor=str2double(get(handles.cofactor,'string'));
+    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.cofactor_val); %switching sampled bcs to full bcs
     
     handles.normbcs=normalize_bcs(handles.bcs);
     
@@ -489,7 +491,7 @@ if PathName ~= 0
         data(:,1:end-1)=handles.x(thiswell_bin,:);
         data(:,end)=i;
         if ~isempty(data)
-            fca_writefcs([PathName '/' FileName '_' handles.wellLabels{i} '.fcs'],data,m,c)
+            fca_writefcs([PathName filesep FileName '_' handles.wellLabels{i} '.fcs'],data,m,c)
             wellNumbers(thiswell_bin)=i; %%%
         end
     end
@@ -499,11 +501,11 @@ if PathName ~= 0
     data=zeros(sum(not_inawell),n);
     data(:,1:end-1)=handles.x(not_inawell,:);
     
-    fca_writefcs([PathName '/' FileName '_unassigned.fcs'],data,m,c)
-    %     fca_writefcs([PathName '/' FileName '_BClabeled.fcs'],[handles.x wellNumbers],[handles.m 'barcode'],[handles.c 'barcode']) %%%
-    %     dlmwrite([PathName '/' FileName '_wellNumbers.txt'],wellNumbers,'delimiter','\n')
+    fca_writefcs([PathName filesep FileName '_unassigned.fcs'],data,m,c)
+    %     fca_writefcs([PathName filesep FileName '_BClabeled.fcs'],[handles.x wellNumbers],[handles.m 'barcode'],[handles.c 'barcode']) %%%
+    %     dlmwrite([PathName filesep FileName '_wellNumbers.txt'],wellNumbers,'delimiter','\n')
     
-    fid=fopen([PathName '/Debarcode_Parameters.txt'],'w');
+    fid=fopen([PathName filesep 'Debarcode_Parameters.txt'],'w');
     fprintf(fid,'%s\n',datestr(now));
     fprintf(fid,'%s\n','Input files:');
     for i=1:length(handles.current_files)
@@ -512,7 +514,7 @@ if PathName ~= 0
     fprintf(fid,'%s\n',['Barcode Key: ' handles.key_filename]);
     fprintf(fid,'%s\n',['Mahalanobis cutoff: ' get(handles.mahal_cutoff,'string')]);
     fprintf(fid,'%s\n',['Separation cutoff: ' get(handles.delta_text,'string')]);
-    fprintf(fid,'%s\n',['Output saved to: ' PathName '/']);
+    fprintf(fid,'%s\n',['Output saved to: ' PathName filesep]);
     fclose(fid);
     
     set(gcf,'pointer','arrow')
@@ -922,11 +924,11 @@ end
 %sample 100000 cells and use until save
 num_cells=size(handles.x,1);
 sample_size=100000;
-cofactor=str2double(get(handles.cofactor,'string'));
+% cofactor=str2double(get(handles.cofactor,'string'));
 if num_cells>sample_size
-    handles.bcs=bmtrans(handles.x(randsample(num_cells,sample_size),handles.bc_cols),cofactor);
+    handles.bcs=bmtrans(handles.x(randsample(num_cells,sample_size),handles.bc_cols),handles.cofactor_val);
 else
-    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),cofactor);  %matrix of each cell's bc channels, transformed
+    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.cofactor_val);  %matrix of each cell's bc channels, transformed
 end
 
 handles.normbcs=normalize_bcs(handles.bcs);    
@@ -954,8 +956,6 @@ for i=1:length(handles.masses)
 end
 
 guidata(handles.parent,handles)
-
-
 
 function save_text_Callback(hObject, eventdata, handles)
 % hObject    handle to save_text (see GCBO)
@@ -1349,6 +1349,16 @@ function cofactor_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of cofactor as text
 %        str2double(get(hObject,'String')) returns contents of cofactor as a double
+
+old_cofactor=handles.cofactor_val;
+
+handles.cofactor_val=str2double(get(handles.cofactor,'string'));
+
+handles.bcs=asinh(old_cofactor*sinh(handles.bcs)/handles.cofactor_val);
+
+handles.normbcs=normalize_bcs(handles.bcs);    
+guidata(handles.parent,handles)
+
 
 
 % --- Executes during object creation, after setting all properties.
