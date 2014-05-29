@@ -334,6 +334,104 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 
+function handles=compute_debarcoding(handles)
+
+if length(unique(sum(handles.key,2)))==1
+    
+    [sorted,ix]=sort(handles.normbcs,2,'descend');
+    
+    % to look at top k barcodes, rather than barcodes above largest separation
+    numdf=sum(handles.key(1,:));  %this is how many positive we are expecting
+    
+    lowests=sorted(:,numdf);
+    
+    %need to get rid of ones that aren't above actual signal cutoff
+    N=size(handles.bcs,1);
+    indlist=(1:N)';
+    inds1=sub2ind(size(ix),indlist,ix(:,numdf));
+    %         cutoff1=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
+    cutoff1=0;
+    toolow1=handles.bcs(inds1)<cutoff1;
+    
+    lowests(toolow1)=nan;
+    
+    
+    deltas=sorted(:,numdf)-sorted(:,numdf+1);  %separation between 3rd and 4th highest normalized barcodes
+    
+else
+    
+    [sorted,ix]=sort(handles.normbcs,2,'ascend');
+    
+    seps=diff(sorted,1,2);
+    
+    N=size(handles.bcs,1);
+    indlist=(1:N)';
+    
+    [~,locs]=sort(seps,2,'descend');  %locs are locations in ix of bc level that is on lower side of largest gap.  i.e., if locs is 5, the largest bc separation is between barcode ix(5) and ix(6)
+    
+    %         cutoff=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
+    cutoff=0;
+    
+    indsabove=sub2ind(size(ix),indlist,locs(:,1)+1);  %+1 so that finding the lowest "real" bc
+    betws=ix(indsabove);
+    indsabove=sub2ind(size(handles.bcs),indlist,betws);
+    % lowests=handles.bcs(inds);  %transformed values of lowest "good" bcs  %switched to normalized bcs
+    lowests=handles.normbcs(indsabove);  %normalized transformed values of lowest "good" bcs
+    
+    %%%finding the highest "non-real" bc
+    indsbelow=sub2ind(size(ix),indlist,locs(:,1));
+    betws=ix(indsbelow);
+    indsbelow=sub2ind(size(handles.bcs),indlist,betws);
+    % nextlowests=handles.bcs(inds); %switched to normalized bcs
+    nextlowests=handles.normbcs(indsbelow);
+    
+    %%%
+    
+    toolow=find(handles.bcs(indsabove)<cutoff);  %these aren't high enough to count.  go to next-biggest-sep. using actual bcs here, not normalized
+    inds=sub2ind(size(ix),toolow,locs(toolow,2)+1);
+    betws2=ix(inds);
+    inds=sub2ind(size(handles.bcs),toolow,betws2);
+    lowests2=handles.normbcs(inds);
+    highernow=handles.bcs(inds)>cutoff;  %again using actualy bcs, not normalized, to check against cutoff
+    %might still need to account for when the largest sep is high ...  can
+    %first try eliminating these just with illegal barcodes
+    lowests(toolow(highernow))=lowests2(highernow);
+    lowests(toolow(~highernow))=nan;  %if the second try didn't find one >10, set to nan
+    
+    %adding in the replaced "non-real" bc
+    inds=sub2ind(size(ix),toolow,locs(toolow,2));
+    betws2=ix(inds);
+    inds=sub2ind(size(handles.bcs),toolow,betws2);
+    % nextlowests2=handles.bcs(inds);  %switched to normalized bcs
+    nextlowests2=handles.normbcs(inds);
+    nextlowests(toolow(highernow))=nextlowests2(highernow);
+    nextlowests(toolow(~highernow))=nan;
+    
+    deltas=lowests-nextlowests;
+    
+end
+
+handles.deltas=deltas;
+
+code_assign=false(N,length(handles.masses));  %rows will be barcodes of each cell
+for j=1:length(handles.masses)
+    code_assign(:,j)=handles.normbcs(:,j) >= lowests;
+end
+
+% num_codes=length(handles.wellLabels);
+length_codes=size(handles.key,2);
+handles.gated=cell(1,handles.num_codes);
+num_cells=size(handles.bcs,1);
+
+
+for i=1:handles.num_codes
+    clust_inds=true(num_cells,1);
+    for j=1:length_codes
+        clust_inds=clust_inds & (code_assign(:,j)==handles.key(i,j));
+    end
+    handles.gated{i}=clust_inds;
+end
+
 % --- Executes on button press in save_button.
 function save_button_Callback(hObject, eventdata, handles)
 % hObject    handle to save_button (see GCBO)
@@ -361,119 +459,16 @@ if PathName ~= 0
     n=length(c);
     
     %% need to recompute handles.gated using all (not just sampled) cells
-    %%Aug2013
-%     cofactor=str2double(get(handles.cofactor,'string'));
+
     handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.cofactor_val); %switching sampled bcs to full bcs
     
     handles.normbcs=normalize_bcs(handles.bcs);
     
-    if length(unique(sum(handles.key,2)))==1
-        
-        [sorted,ix]=sort(handles.normbcs,2,'descend');
-        
-        % to look at top k barcodes, rather than barcodes above largest separation
-        numdf=sum(handles.key(1,:));  %this is how many positive we are expecting
-        
-        lowests=sorted(:,numdf);
-        
-        %need to get rid of ones that aren't above actual signal cutoff
-        N=size(handles.bcs,1);
-        indlist=(1:N)';
-        inds1=sub2ind(size(ix),indlist,ix(:,numdf));
-%         cutoff1=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
-        cutoff1=0;
-        toolow1=handles.bcs(inds1)<cutoff1;
-        
-        lowests(toolow1)=nan;
-        
-        
-        deltas=sorted(:,numdf)-sorted(:,numdf+1);  %separation between 3rd and 4th highest normalized barcodes
-        
-    else
-        
-        [sorted,ix]=sort(handles.normbcs,2,'ascend');
-        
-        seps=diff(sorted,1,2);
-        
-        N=size(handles.bcs,1);
-        indlist=(1:N)';
-        
-        [~,locs]=sort(seps,2,'descend');  %locs are locations in ix of bc level that is on lower side of largest gap.  i.e., if locs is 5, the largest bc separation is between barcode ix(5) and ix(6)
-        
-%         cutoff=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
-        cutoff=0;
+    handles=compute_debarcoding(handles);
+    
+    % compute mahalanobis distances
+    handles=delta_text_Callback(hObject, eventdata, handles);
 
-        indsabove=sub2ind(size(ix),indlist,locs(:,1)+1);  %+1 so that finding the lowest "real" bc
-        betws=ix(indsabove);
-        indsabove=sub2ind(size(handles.bcs),indlist,betws);
-        % lowests=handles.bcs(inds);  %transformed values of lowest "good" bcs  %switched to normalized bcs
-        lowests=handles.normbcs(indsabove);  %normalized transformed values of lowest "good" bcs
-        
-        %%%finding the highest "non-real" bc
-        indsbelow=sub2ind(size(ix),indlist,locs(:,1));
-        betws=ix(indsbelow);
-        indsbelow=sub2ind(size(handles.bcs),indlist,betws);
-        % nextlowests=handles.bcs(inds); %switched to normalized bcs
-        nextlowests=handles.normbcs(indsbelow);
-        
-        %%%
-        
-        toolow=find(handles.bcs(indsabove)<cutoff);  %these aren't high enough to count.  go to next-biggest-sep. using actual bcs here, not normalized
-        inds=sub2ind(size(ix),toolow,locs(toolow,2)+1);
-        betws2=ix(inds);
-        inds=sub2ind(size(handles.bcs),toolow,betws2);
-        lowests2=handles.normbcs(inds);
-        highernow=handles.bcs(inds)>cutoff;  %again using actualy bcs, not normalized, to check against cutoff
-        %might still need to account for when the largest sep is high ...  can
-        %first try eliminating these just with illegal barcodes
-        lowests(toolow(highernow))=lowests2(highernow);
-        lowests(toolow(~highernow))=nan;  %if the second try didn't find one >10, set to nan
-        
-        %adding in the replaced "non-real" bc
-        inds=sub2ind(size(ix),toolow,locs(toolow,2));
-        betws2=ix(inds);
-        inds=sub2ind(size(handles.bcs),toolow,betws2);
-        % nextlowests2=handles.bcs(inds);  %switched to normalized bcs
-        nextlowests2=handles.normbcs(inds);
-        nextlowests(toolow(highernow))=nextlowests2(highernow);
-        nextlowests(toolow(~highernow))=nan;
-        
-        deltas=lowests-nextlowests;
-        
-    end
-    
-    handles.deltas=deltas;
-    
-    code_assign=false(N,length(handles.masses));  %rows will be barcodes of each cell
-    for j=1:length(handles.masses)
-        code_assign(:,j)=handles.normbcs(:,j) >= lowests;
-    end
-    
-    num_codes=length(handles.wellLabels);
-    length_codes=size(handles.key,2);
-    handles.gated=cell(1,num_codes);
-    num_cells=size(handles.bcs,1);
-    
-    
-    for i=1:num_codes
-        clust_inds=true(num_cells,1);
-        for j=1:length_codes
-            clust_inds=clust_inds & (code_assign(:,j)==handles.key(i,j));
-        end
-        handles.gated{i}=clust_inds;
-    end
-    
-    
-    %%% temporary to look at trimming
-    
-    handles.mahal=zeros(size(handles.deltas));
-    for i=1:num_codes
-        in_bc=handles.gated{i} & (handles.deltas > sep_cutoff);
-        bci=handles.bcs(in_bc,:);
-        if size(bci,1)>num_codes
-            handles.mahal(in_bc)=mahal(bci,bci);
-        end
-    end
     
     %% end re-computation of debarcoding
     
@@ -622,111 +617,8 @@ set(gcf,'pointer','watch')
 drawnow
 
 
-if length(unique(sum(handles.key,2)))==1
-    
-    [sorted,ix]=sort(handles.normbcs,2,'descend');
-    
-    % to look at top k barcodes, rather than barcodes above largest separation
-    numdf=sum(handles.key(1,:));  %this is how many positive we are expecting
-    
-    
-    lowests=sorted(:,numdf);
-    
-    %need to get rid of ones that aren't above actual signal cutoff
-    N=size(handles.bcs,1);
-    indlist=(1:N)';
-    inds1=sub2ind(size(ix),indlist,ix(:,numdf));
-%     cutoff1=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
-    cutoff1=0;
-    toolow1=handles.bcs(inds1)<cutoff1;
-    
-    lowests(toolow1)=nan;
-    
-    deltas=sorted(:,numdf)-sorted(:,numdf+1);  %separation between 3rd and 4th highest normalized barcodes
-    
-else
-    
-    [sorted,ix]=sort(handles.normbcs,2,'ascend');
-    
-    seps=diff(sorted,1,2);
-    
-    N=size(handles.bcs,1);
-    indlist=(1:N)';
-    
-    [~,locs]=sort(seps,2,'descend');  %locs are locations in ix of bc level that is on lower side of largest gap.  i.e., if locs is 5, the largest bc separation is between barcode ix(5) and ix(6)
-    
-%     cutoff=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
-%     cutoff=0;
-    
-    indsabove=sub2ind(size(ix),indlist,locs(:,1)+1);  %+1 so that finding the lowest "real" bc
-    betws=ix(indsabove);
-    indsabove=sub2ind(size(handles.bcs),indlist,betws);
-    % lowests=handles.bcs(inds);  %transformed values of lowest "good" bcs  %switched to normalized bcs
-    lowests=handles.normbcs(indsabove);  %normalized transformed values of lowest "good" bcs
-    
-    %%%finding the highest "non-real" bc
-    indsbelow=sub2ind(size(ix),indlist,locs(:,1));
-    betws=ix(indsbelow);
-    indsbelow=sub2ind(size(handles.bcs),indlist,betws);
-    % nextlowests=handles.bcs(inds); %switched to normalized bcs
-    nextlowests=handles.normbcs(indsbelow);
-    
-    %%%
-    
-    toolow=find(handles.bcs(indsabove)<cutoff);  %these aren't high enough to count.  go to next-biggest-sep. using actual bcs here, not normalized
-    inds=sub2ind(size(ix),toolow,locs(toolow,2)+1);
-    betws2=ix(inds);
-    inds=sub2ind(size(handles.bcs),toolow,betws2);
-    % lowests2=handles.bcs(inds); %switched to normalized bcs
-    lowests2=handles.normbcs(inds);
-    highernow=handles.bcs(inds)>cutoff;  %again using actualy bcs, not normalized, to check against cutoff
-    %might still need to account for when the largest sep is high ...  can
-    %first try eliminating these just with illegal barcodes
-    lowests(toolow(highernow))=lowests2(highernow);
-    lowests(toolow(~highernow))=nan;  %if the second try didn't find one >10, set to nan
-    
-    %adding in the replaced "non-real" bc
-    inds=sub2ind(size(ix),toolow,locs(toolow,2));
-    betws2=ix(inds);
-    inds=sub2ind(size(handles.bcs),toolow,betws2);
-    % nextlowests2=handles.bcs(inds);  %switched to normalized bcs
-    nextlowests2=handles.normbcs(inds);
-    nextlowests(toolow(highernow))=nextlowests2(highernow);
-    nextlowests(toolow(~highernow))=nan;
-    
-    deltas=lowests-nextlowests;
-    
-end
 
-
-%don't get rid of anything based on separatio now; save sep value
-%and use like mahal value
-
-%         lowests(deltas<str2double(get(handles.delta_text,'string')))=nan;  %if the largest separation is less than sep cutoff in asinh space, dont count it
-handles.deltas=deltas;
-
-code_assign=false(N,length(handles.masses));  %rows will be barcodes of each cell
-for j=1:length(handles.masses)
-    % code_assign(:,j)=handles.bcs(:,j) >= lowests; %switched to normalized bcs
-    code_assign(:,j)=handles.normbcs(:,j) >= lowests; %this takes the min cutoff into account
-end
-
-% gated=gate_bcs(code_assign,handles.x); %%replace with below using csv key
-num_codes=length(handles.wellLabels);
-length_codes=size(handles.key,2);
-handles.gated=cell(1,num_codes);
-num_cells=size(handles.bcs,1);
-
-%         handles.dump=true(num_cells,1);
-
-for i=1:num_codes
-    clust_inds=true(num_cells,1);
-    for j=1:length_codes
-        clust_inds=clust_inds & (code_assign(:,j)==handles.key(i,j));
-    end
-    handles.gated{i}=clust_inds;
-    %             handles.dump(clust_inds)=false;  %these cells are in a gate
-end
+handles=compute_debarcoding(handles);
 
 % compute mahalanobis distances
 handles=delta_text_Callback(hObject, eventdata, handles);
@@ -739,7 +631,7 @@ minsep=0;
 maxsep=1;
 handles.seprange=linspace(minsep,maxsep,numseps);
 
-clust_size=zeros(numseps,num_codes);
+clust_size=zeros(numseps,handles.num_codes);
 
 for i=1:numseps
     for j=1:length(handles.wellLabels)
@@ -753,6 +645,7 @@ delete(tb)
 
 handles.ax=subplot(3,1,[1 2],'parent',handles.ax_panel);
 
+num_cells=size(handles.bcs,1);
 handles.lines=plot(handles.ax,handles.seprange,100/num_cells*clust_size);
 set(get(handles.ax,'XLabel'),'String','Barcode separation','fontsize',12)
 set(get(handles.ax,'YLabel'),'String','Percent of cells by well','fontsize',12)
@@ -808,11 +701,11 @@ handles.sep_cutoff=str2double(get(handles.delta_text,'string'));
 % re-compute mahalanobis distances 
 
 handles.mahal=zeros(size(handles.deltas));
-num_codes=length(handles.wellLabels);
-for i=1:num_codes
+% num_codes=length(handles.wellLabels);
+for i=1:handles.num_codes
     in_bc=handles.gated{i} & (handles.deltas > handles.sep_cutoff);
     bci=handles.bcs(in_bc,:);
-    if size(bci,1)>num_codes
+    if size(bci,1)>handles.num_codes
         handles.mahal(in_bc)=mahal(bci,bci);
     end
 end
@@ -872,6 +765,7 @@ if handles.bcpathname ~= 0
     
     handles.masses=cellstr(num2str(x.data(1,:)'));
     handles.wellLabels=x.textdata(2:end);
+    handles.num_codes=length(handles.wellLabels);
     set(handles.well_popup,'string',handles.wellLabels)
     
     handles.key=x.data(2:end,:);
