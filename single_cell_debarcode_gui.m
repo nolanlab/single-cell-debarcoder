@@ -130,22 +130,22 @@ selectedobj = get(handles.plottype,'SelectedObject');
 
 wellnum=get(handles.well_popup,'value');
 mahal_cutoff=str2double(get(handles.mahal_cutoff,'string'));
-sep_cutoff=str2double(get(handles.delta_text,'string'));
+% sep_cutoff=str2double(get(handles.delta_text,'string'));
+% 
+% if sep_cutoff ~= handles.sep_cutoff %sep_cutoff has been updated, so need to update mahals and bc assignments
+%     handles.sep_cutoff=sep_cutoff;
+%     num_codes=length(handles.wellLabels);
+%     handles.mahal=zeros(size(handles.deltas));
+%     for i=1:num_codes
+%         in_bc=handles.gated{i} & (handles.deltas > sep_cutoff);
+%         bci=handles.bcs(in_bc,:);
+%         if size(bci,1)>num_codes
+%             handles.mahal(in_bc)=mahal(bci,bci);
+%         end
+%     end
+% end
 
-if sep_cutoff ~= handles.sep_cutoff %sep_cutoff has been updated, so need to update mahals and bc assignments
-    handles.sep_cutoff=sep_cutoff;
-    num_codes=length(handles.wellLabels);
-    handles.mahal=zeros(size(handles.deltas));
-    for i=1:num_codes
-        in_bc=handles.gated{i} & (handles.deltas > sep_cutoff);
-        bci=handles.bcs(in_bc,:);
-        if size(bci,1)>num_codes
-            handles.mahal(in_bc)=mahal(bci,bci);
-        end
-    end
-end
-
-thiswell_bin = handles.gated{wellnum} & (handles.mahal<mahal_cutoff) & (handles.deltas > sep_cutoff);
+thiswell_bin = handles.gated{wellnum} & (handles.mahal<mahal_cutoff) & (handles.deltas > handles.sep_cutoff);
 
 if ~isempty(wellnum)
     
@@ -220,7 +220,7 @@ if ~isempty(wellnum)
                     colormap(cm)
                 else
                     scatter(thiswell(:,1),thiswell(:,2),4,seps)
-                    set(gca,'clim',[sep_cutoff 1])
+                    set(gca,'clim',[handles.sep_cutoff 1])
                     
                     colormap(flipud(hsv))
                 end
@@ -269,7 +269,7 @@ if ~isempty(wellnum)
                                 colormap(hsv)
                             else
                                 scatter(thiswell(:,1),thiswell(:,2),2,seps)
-                                set(gca,'clim',[sep_cutoff 1])
+                                set(gca,'clim',[handles.sep_cutoff 1])
                                 colormap(flipud(cm))
                             end
                         end
@@ -297,7 +297,7 @@ if ~isempty(wellnum)
                 cb=colorbar('position',[0.85 0.5 0.027 0.4]);
                 set(get(cb,'ylabel'),'string','Mahalanobis Distance','fontsize',14)
             else
-                set(bigax,'clim',[sep_cutoff 1])
+                set(bigax,'clim',[handles.sep_cutoff 1])
                 cb=colorbar('position',[0.85 0.5 0.027 0.4]);
                 set(get(cb,'ylabel'),'string','Separation','fontsize',14)
             end
@@ -344,8 +344,8 @@ function save_button_Callback(hObject, eventdata, handles)
 FileName=get(handles.save_text,'string');
 
 mahal_cutoff=str2double(get(handles.mahal_cutoff,'string'));
-sep_cutoff=str2double(get(handles.delta_text,'string'));
-
+% sep_cutoff=str2double(get(handles.delta_text,'string'));
+sep_cutoff=handles.sep_cutoff;
 
 PathName = uigetdir;
 if PathName ~= 0
@@ -485,7 +485,7 @@ if PathName ~= 0
         fprintf(fid,'%s\n',handles.wellLabels{i});  %printing out one line of _BarCodeList.txt
         
         thiswell_bin = handles.gated{i} & (handles.mahal<mahal_cutoff) & (handles.deltas > sep_cutoff);
-        not_inawell(thiswell_bin)=false; %cells is this well removed from unassigned_binary
+        not_inawell(thiswell_bin)=false; %cells in this well removed from unassigned_binary
         
         data=zeros(sum(thiswell_bin),n);
         data(:,1:end-1)=handles.x(thiswell_bin,:);
@@ -621,9 +621,6 @@ tb=text(0.5,0.5,'Debarcoding ...','horizontalalignment','center','verticalalignm
 set(gcf,'pointer','watch')
 drawnow
 
-% [sorted,ix]=sort(handles.bcs,2); %switched to normalized bcs
-
-
 
 if length(unique(sum(handles.key,2)))==1
     
@@ -659,7 +656,7 @@ else
     [~,locs]=sort(seps,2,'descend');  %locs are locations in ix of bc level that is on lower side of largest gap.  i.e., if locs is 5, the largest bc separation is between barcode ix(5) and ix(6)
     
 %     cutoff=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
-    cutoff=0;
+%     cutoff=0;
     
     indsabove=sub2ind(size(ix),indlist,locs(:,1)+1);  %+1 so that finding the lowest "real" bc
     betws=ix(indsabove);
@@ -731,14 +728,17 @@ for i=1:num_codes
     %             handles.dump(clust_inds)=false;  %these cells are in a gate
 end
 
-%%% temporary to look at trimming
-handles.mahal=zeros(size(handles.deltas));
-for i=1:num_codes    
-    bci=handles.bcs(handles.gated{i},:);
-    if size(bci,1)>num_codes
-        handles.mahal(handles.gated{i})=mahal(bci,bci);
-    end
-end
+% temp
+% handles.mahal=zeros(size(handles.deltas));
+% for i=1:num_codes    
+%     bci=handles.bcs(handles.gated{i},:);
+%     if size(bci,1)>num_codes
+%         handles.mahal(handles.gated{i})=mahal(bci,bci);
+%     end
+% end
+
+handles=delta_text_Callback(hObject, eventdata, handles);
+
 
 %%% plot well abundances
 
@@ -785,33 +785,6 @@ drawnow
 set(gcf,'pointer','arrow')
 drawnow
 
-
-%%%
-
-
-%         mahal_threshold=30;
-%
-%             handles.bclabels=zeros(size(handles.bcs,1),1);
-%             for i=1:num_codes
-%                 handles.bclabels(handles.gated{i})=i;
-%             end
-%             inwell=find(handles.bclabels~=0);
-%             bclabels=handles.bclabels(inwell);
-%             bcdata=handles.bcs(inwell,:);
-%             gmfit=gmdistribution.fit(bcdata, num_codes,'start',bclabels);
-%             mdist=mahal(gmfit,bcdata);
-% %             totrim=false(size(inwell));
-% %             for i=1:num_codes
-% %                 totrim(bclabels == i & mdist(:,i) > mahal_threshold) = true;
-% %             end
-% %             handles.bclabels(inwell(totrim))=0;
-%             handles.mahal=zeros(size(handles.bcs,1),num_codes);
-%             handles.mahal(inwell,:)=mdist;
-%          %%%
-
-
-
-
 guidata(hObject,handles)
 
 
@@ -829,13 +802,31 @@ text(cp(1,1),cp(1,2),handles.wellLabels{ind},'fontsize',12,'verticalalignment','
 
 
 
-function delta_text_Callback(hObject, eventdata, handles)
+function handles=delta_text_Callback(hObject, eventdata, handles)
 % hObject    handle to delta_text (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hints: get(hObject,'String') returns contents of delta_text as text
 %        str2double(get(hObject,'String')) returns contents of delta_text as a double
+
+% update separation cutoff 
+
+handles.sep_cutoff=str2double(get(handles.delta_text,'string'));
+
+% re-compute mahalanobis distances 
+
+handles.mahal=zeros(size(handles.deltas));
+num_codes=length(handles.wellLabels);
+for i=1:num_codes
+    in_bc=handles.gated{i} & (handles.deltas > handles.sep_cutoff);
+    bci=handles.bcs(in_bc,:);
+    if size(bci,1)>num_codes
+        handles.mahal(in_bc)=mahal(bci,bci);
+    end
+end
+
+guidata(handles.parent,handles)
 
 
 % --- Executes during object creation, after setting all properties.
@@ -957,6 +948,8 @@ end
 
 guidata(handles.parent,handles)
 
+
+
 function save_text_Callback(hObject, eventdata, handles)
 % hObject    handle to save_text (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
@@ -1031,6 +1024,7 @@ function minsep_Callback(hObject, eventdata, handles)
 
 % Hints: get(hObject,'String') returns contents of minsep as text
 %        str2double(get(hObject,'String')) returns contents of minsep as a double
+
 
 
 % --- Executes during object creation, after setting all properties.
