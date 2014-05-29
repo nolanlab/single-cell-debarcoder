@@ -728,17 +728,8 @@ for i=1:num_codes
     %             handles.dump(clust_inds)=false;  %these cells are in a gate
 end
 
-% temp
-% handles.mahal=zeros(size(handles.deltas));
-% for i=1:num_codes    
-%     bci=handles.bcs(handles.gated{i},:);
-%     if size(bci,1)>num_codes
-%         handles.mahal(handles.gated{i})=mahal(bci,bci);
-%     end
-% end
-
+% compute mahalanobis distances
 handles=delta_text_Callback(hObject, eventdata, handles);
-
 
 %%% plot well abundances
 
@@ -1248,93 +1239,9 @@ end
 
 xt=bmtrans(xticks,cofactor);
 
-function denslevel=densassign(x,perc,M)
-%denslevel=densassign(x,perc,M)
-
-if nargin<3
-    M=128;
-end
-
-if nargin<2
-    perc=0;
-end
-
-n=size(x,1);  %number of data points
-d=size(x,2);  %number of dimensions
-MM = M^d; %number of total gridpoints
-
-mins=min(x);  %vector of min of each column of data
-maxs=max(x);   %vector of max of each column of data
-Diff=maxs-mins;
-mins=mins-perc/100*Diff;
-maxs=maxs+perc/100*Diff;
-
-Delta = 1/(M-1)*(maxs-mins);  %vector of distances between neighbor grid points in each dimension
-
-% ym=gridpoints(d,1:M); %list of every possible combo of 1:M
-
-ye=zeros(d,M);
-multby=zeros(1,d);  %used in coord transfrom from m to k
-pointLL=zeros(n,d);  %this will be the "lower left" gridpoint to each data point
-for i = 1:d
-    ye(i,:) = linspace(mins(i),maxs(i),M);
-    multby(i)=M^(i-1);
-    pointLL(:,i)=floor((x(:,i)-mins(i))./Delta(i)) + 1;
-end
-pointLL(pointLL==M)=M-1;  %this avoids going over grid boundary
-
-%% assign each data point to its closest grid point
-[xgrid,ygrid]=meshgrid(ye(1,:),ye(2,:));
-z=reshape(1:MM,M,M);
-GridAssign=interp2(xgrid,ygrid,z',x(:,1),x(:,2),'nearest');  %this associates each data point with its nearest grid point
-
-%% compute w
-Deltmat=repmat(Delta,n,1);
-shape=M*ones(1,d);
-
-wmat=zeros(M,M);
-for i=0:1  %number of neighboring gridpoints in d dimensions
-    for j=0:1
-        pointm=pointLL+repmat([j i],n,1);  %indices of ith neighboring gridpoints
-        pointy=zeros(n,d);
-        for k=1:d
-            pointy(:,k)=ye(k,pointm(:,k));  %y-values of ith neighboring gridpoints
-        end
-        W=prod(1-(abs(x-pointy)./Deltmat),2);  %contribution to w from ith neighboring gridpoint from each datapoint
-        wmat=wmat+accumarray(pointm,W,shape);  %sums contributions for ith gridpoint over data points and adds to wmat
-    end
-end
-
-%% compute f, sig, df and A
-n6 = n^(-1/6);
-h=zeros(1,d);
-Z=zeros(1,d);
-Zin=cell(1,d);
-for i =1:d
-    h(i) = std(x(:,i))*n6;
-    Z(i) = min(floor(4*h(i)/Delta(i)), M-1);
-    Zin{i}=-Z(i):Z(i);
-end
-
-phi = @(x) 1/sqrt(2*pi)*exp(-x.^2./2);
-
-[L{1},L{2}]=meshgrid(Zin{1},Zin{2});
-
-Phix=phi(L{1}*Delta(1)./h(1))./h(1);
-Phiy=phi(L{2}*Delta(2)./h(2))./h(2);
-
-Phimat = (Phix.*Phiy)';   %matrix of Phi for inputting into convn
-
-fmat = 1/n*conv2(wmat,Phimat,'same');  %d-dim matrix of estimated densities
-f=reshape(fmat,1,MM);  %f in single vector
-
-[~,bin]=histc(f,linspace(0,max(f),64));
-denslevel=bin(GridAssign);
 
 function y=bmtrans(x,c)
 y=asinh(1/c*x);
-
-
 
 function cofactor_Callback(hObject, eventdata, handles)
 % hObject    handle to cofactor (see GCBO)
