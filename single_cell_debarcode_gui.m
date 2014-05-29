@@ -63,9 +63,15 @@ set(handles.plottype,'SelectionChangeFcn',{@plot_changefcn,handles})
 set(handles.plottype,'SelectedObject',handles.colorplot)
 set(handles.color_panel,'SelectedObject',handles.color_mahal)
 % set(handles.cutoff_text,'string','0')
+
+%%%  initialize parameters
+
 set(handles.delta_text,'string','0.1')
-set(handles.mahal_cutoff,'string',30)
 handles.sep_cutoff=0.1;
+
+set(handles.mahal_cutoff,'string','30')
+handles.mahal_cutoff_val=30;
+
 handles.parent=gcf;
 set(handles.parent,'WindowStyle','normal')
 
@@ -119,7 +125,7 @@ switch get(selectedobj,'string')
         set(handles.biax_panel,'visible','off')
         set(handles.color_panel,'visible','on')
 end
- 
+
 % --- Executes on button press in plot_button.
 function plot_button_Callback(hObject, eventdata, handles)
 % hObject    handle to plot_button (see GCBO)
@@ -129,23 +135,10 @@ function plot_button_Callback(hObject, eventdata, handles)
 selectedobj = get(handles.plottype,'SelectedObject');
 
 wellnum=get(handles.well_popup,'value');
-mahal_cutoff=str2double(get(handles.mahal_cutoff,'string'));
-% sep_cutoff=str2double(get(handles.delta_text,'string'));
-% 
-% if sep_cutoff ~= handles.sep_cutoff %sep_cutoff has been updated, so need to update mahals and bc assignments
-%     handles.sep_cutoff=sep_cutoff;
-%     num_codes=length(handles.wellLabels);
-%     handles.mahal=zeros(size(handles.deltas));
-%     for i=1:num_codes
-%         in_bc=handles.gated{i} & (handles.deltas > sep_cutoff);
-%         bci=handles.bcs(in_bc,:);
-%         if size(bci,1)>num_codes
-%             handles.mahal(in_bc)=mahal(bci,bci);
-%         end
-%     end
-% end
 
-thiswell_bin = handles.gated{wellnum} & (handles.mahal<mahal_cutoff) & (handles.deltas > handles.sep_cutoff);
+% mahal_cutoff=str2double(get(handles.mahal_cutoff,'string'));
+
+thiswell_bin = handles.gated{wellnum} & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > handles.sep_cutoff);
 
 if ~isempty(wellnum)
     
@@ -153,7 +146,7 @@ if ~isempty(wellnum)
     drawnow;
     switch get(selectedobj,'string')
         case 'Color'
-                   
+            
             oldax=get(handles.ax_panel,'children');
             delete(oldax)
             
@@ -169,9 +162,9 @@ if ~isempty(wellnum)
                 hold on
                 
                 set(ax(1),'Box','off','xtick',[],'Layer','top')
-%                 set(h2,'visible','off')
-%                 set(h1,'marker','.','linestyle','none')
-%                 
+                %                 set(h2,'visible','off')
+                %                 set(h1,'marker','.','linestyle','none')
+                %
                 set(ax(1),'ytick',handles.xt,'yticklabel',handles.xtl)
                 set(get(ax(1),'Ylabel'),'String','untransformed values','fontsize',12)
                 set(get(ax(1),'Ylabel'),'String','asinh-transformed values','fontsize',12)
@@ -213,10 +206,10 @@ if ~isempty(wellnum)
             
             seps=handles.deltas(thiswell_bin);
             if ~isempty(thiswell)
-
+                
                 if get(handles.color_panel,'SelectedObject') == handles.color_mahal
                     scatter(thiswell(:,1),thiswell(:,2),4,mdists)
-                    set(gca,'clim',[0 mahal_cutoff])
+                    set(gca,'clim',[0 handles.mahal_cutoff_val])
                     colormap(cm)
                 else
                     scatter(thiswell(:,1),thiswell(:,2),4,seps)
@@ -233,7 +226,7 @@ if ~isempty(wellnum)
                 end
                 
             end
-
+            
             set(gca,'xlim',handles.xl,'ylim',handles.xl,...
                 'xtick',handles.xt,'xticklabel',handles.xtl,...
                 'ytick',handles.xt,'yticklabel',handles.xtl)
@@ -243,7 +236,7 @@ if ~isempty(wellnum)
             oldax=get(handles.ax_panel,'children');
             delete(oldax)
             n=size(handles.bcs,2);
-
+            
             cm=hsv(64);
             
             Ind=1;
@@ -265,7 +258,7 @@ if ~isempty(wellnum)
                         if ~isempty(thiswell)
                             if get(handles.color_panel,'SelectedObject') == handles.color_mahal
                                 scatter(thiswell(:,1),thiswell(:,2),2,mdists)
-                                set(gca,'clim',[0 mahal_cutoff])
+                                set(gca,'clim',[0 handles.mahal_cutoff_val])
                                 colormap(hsv)
                             else
                                 scatter(thiswell(:,1),thiswell(:,2),2,seps)
@@ -278,10 +271,10 @@ if ~isempty(wellnum)
                     elseif j>0 && i==j-1 %&& any([i j])
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
                         if sum(handles.gated{wellnum}) ~= 0
-                            [binsize,binloc]=hist(handles.bcs(handles.gated{wellnum} & handles.mahal<mahal_cutoff,j),100);
+                            [binsize,binloc]=hist(handles.bcs(handles.gated{wellnum} & handles.mahal<handles.mahal_cutoff_val,j),100);
                             bar(binloc,binsize,'edgecolor','none','facecolor',[0 0.5 0])
                         end
-                        set(ax,'xlim',handles.xl,'xtick',[],'ytick',[])                       
+                        set(ax,'xlim',handles.xl,'xtick',[],'ytick',[])
                     elseif i==n && j>0
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
                         set(ax,'visible','off')
@@ -293,7 +286,7 @@ if ~isempty(wellnum)
             
             bigax=axes('parent',handles.ax_panel);
             if get(handles.color_panel,'SelectedObject') == handles.color_mahal
-                set(bigax,'clim',[0 mahal_cutoff])
+                set(bigax,'clim',[0 handles.mahal_cutoff_val])
                 cb=colorbar('position',[0.85 0.5 0.027 0.4]);
                 set(get(cb,'ylabel'),'string','Mahalanobis Distance','fontsize',14)
             else
@@ -441,7 +434,7 @@ function save_button_Callback(hObject, eventdata, handles)
 
 FileName=get(handles.save_text,'string');
 
-mahal_cutoff=str2double(get(handles.mahal_cutoff,'string'));
+% mahal_cutoff=str2double(get(handles.mahal_cutoff,'string'));
 % sep_cutoff=str2double(get(handles.delta_text,'string'));
 sep_cutoff=handles.sep_cutoff;
 
@@ -459,7 +452,7 @@ if PathName ~= 0
     n=length(c);
     
     %% need to recompute handles.gated using all (not just sampled) cells
-
+    
     handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.cofactor_val); %switching sampled bcs to full bcs
     
     handles.normbcs=normalize_bcs(handles.bcs);
@@ -468,7 +461,7 @@ if PathName ~= 0
     
     % compute mahalanobis distances
     handles=delta_text_Callback(hObject, eventdata, handles);
-
+    
     
     %% end re-computation of debarcoding
     
@@ -479,7 +472,7 @@ if PathName ~= 0
         
         fprintf(fid,'%s\n',handles.wellLabels{i});  %printing out one line of _BarCodeList.txt
         
-        thiswell_bin = handles.gated{i} & (handles.mahal<mahal_cutoff) & (handles.deltas > sep_cutoff);
+        thiswell_bin = handles.gated{i} & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > sep_cutoff);
         not_inawell(thiswell_bin)=false; %cells in this well removed from unassigned_binary
         
         data=zeros(sum(thiswell_bin),n);
@@ -654,8 +647,6 @@ set(get(handles.ax,'YLabel'),'String','Percent of cells by well','fontsize',12)
 set(handles.lines,'ButtonDownFcn',{@select_line,handles});
 % handles.ax=ax(1);
 
-
-
 ax2=subplot(3,1,3,'parent',handles.ax_panel);
 [hi,xi]=hist(handles.deltas,100);
 bar(ax2,xi,100/num_cells*hi)
@@ -694,11 +685,11 @@ function handles=delta_text_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'String') returns contents of delta_text as text
 %        str2double(get(hObject,'String')) returns contents of delta_text as a double
 
-% update separation cutoff 
+% update separation cutoff
 
 handles.sep_cutoff=str2double(get(handles.delta_text,'string'));
 
-% re-compute mahalanobis distances 
+% re-compute mahalanobis distances
 
 handles.mahal=zeros(size(handles.deltas));
 % num_codes=length(handles.wellLabels);
@@ -807,7 +798,7 @@ else
     handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.cofactor_val);  %matrix of each cell's bc channels, transformed
 end
 
-handles.normbcs=normalize_bcs(handles.bcs);    
+handles.normbcs=normalize_bcs(handles.bcs);
 
 
 set(handles.x_popup,'value',1)
@@ -825,7 +816,7 @@ handles.leg=cell(1,length(handles.masses));
 for i=1:length(handles.masses)
     m_i=handles.m{handles.bc_cols(i)};
     if ~isempty(m_i)
-    handles.leg{i}=m_i;
+        handles.leg{i}=m_i;
     else
         handles.leg{i}=handles.c{handles.bc_cols(i)};
     end
@@ -1018,7 +1009,7 @@ end
 
 
 
-function mahal_cutoff_Callback(hObject, eventdata, handles)
+function handles=mahal_cutoff_Callback(hObject, eventdata, handles)
 % hObject    handle to mahal_cutoff (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -1026,6 +1017,9 @@ function mahal_cutoff_Callback(hObject, eventdata, handles)
 % Hints: get(hObject,'String') returns contents of mahal_cutoff as text
 %        str2double(get(hObject,'String')) returns contents of mahal_cutoff as a double
 
+
+handles.mahal_cutoff_val=str2double(get(handles.mahal_cutoff,'string'));
+guidata(handles.parent,handles)
 
 % --- Executes during object creation, after setting all properties.
 function mahal_cutoff_CreateFcn(hObject, eventdata, handles)
@@ -1151,7 +1145,7 @@ handles.cofactor_val=str2double(get(handles.cofactor,'string'));
 
 handles.bcs=asinh(old_cofactor*sinh(handles.bcs)/handles.cofactor_val);
 
-handles.normbcs=normalize_bcs(handles.bcs);    
+handles.normbcs=normalize_bcs(handles.bcs);
 guidata(handles.parent,handles)
 
 
