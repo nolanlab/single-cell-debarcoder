@@ -55,14 +55,18 @@ function single_cell_debarcode_gui_OpeningFcn(hObject, eventdata, handles, varar
 % Choose default command line output for single_cell_debarcode_gui
 handles.output = hObject;
 
-%setup default initial view and paramters
+% setup default initial view
+
+handles.parent=gcf;
+set(handles.parent,'WindowStyle','normal')
+
 set(handles.ax,'visible','off')
 set(handles.biax_panel,'visible','off')
 set(handles.color_panel,'visible','off')
 set(handles.plottype,'SelectionChangeFcn',{@plot_changefcn,handles})
 set(handles.plottype,'SelectedObject',handles.colorplot)
 set(handles.color_panel,'SelectedObject',handles.color_mahal)
-% set(handles.cutoff_text,'string','0')
+
 
 %%%  initialize parameters
 
@@ -72,9 +76,7 @@ handles.sep_cutoff=0.1;
 set(handles.mahal_cutoff,'string','30')
 handles.mahal_cutoff_val=30;
 
-handles.parent=gcf;
-set(handles.parent,'WindowStyle','normal')
-
+% set(handles.cutoff_text,'string','0')
 
 handles.cofactor_val=str2double(get(handles.cofactor,'string'));
 handles.xl=bmtrans([-20, 10000],handles.cofactor_val);
@@ -136,9 +138,8 @@ selectedobj = get(handles.plottype,'SelectedObject');
 
 wellnum=get(handles.well_popup,'value');
 
-% mahal_cutoff=str2double(get(handles.mahal_cutoff,'string'));
+thiswell_bin = (handles.bcind==wellnum) & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > handles.sep_cutoff);
 
-thiswell_bin = handles.gated{wellnum} & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > handles.sep_cutoff);
 
 if ~isempty(wellnum)
     
@@ -270,8 +271,8 @@ if ~isempty(wellnum)
                         set(ax,'xlim',handles.xl,'ylim',handles.xl,'xtick',[],'ytick',[])
                     elseif j>0 && i==j-1 %&& any([i j])
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
-                        if sum(handles.gated{wellnum}) ~= 0
-                            [binsize,binloc]=hist(handles.bcs(handles.gated{wellnum} & handles.mahal<handles.mahal_cutoff_val,j),100);
+                        if nnz(handles.bcind==wellnum) ~= 0
+                            [binsize,binloc]=hist(handles.bcs(handles.bcind==wellnum & handles.mahal<handles.mahal_cutoff_val,j),100);
                             bar(binloc,binsize,'edgecolor','none','facecolor',[0 0.5 0])
                         end
                         set(ax,'xlim',handles.xl,'xtick',[],'ytick',[])
@@ -329,54 +330,49 @@ end
 
 function handles=compute_debarcoding(handles)
 
-if length(unique(sum(handles.key,2)))==1
+%cutoff=bmtrans(str2double(get(handles.cutoff_text,'string')),handles.cofactor);
+cutoff=0;
+N=size(handles.bcs,1);
+indlist=(1:N)';
+
+if length(unique(sum(handles.key,2)))==1 %doublet-free    
+    %look at top k barcodes, rather than barcodes above largest separation
     
     [sorted,ix]=sort(handles.normbcs,2,'descend');
     
-    % to look at top k barcodes, rather than barcodes above largest separation
-    numdf=sum(handles.key(1,:));  %this is how many positive we are expecting
+    numdf=sum(handles.key(1,:));  %number of positive BCs per well
     
-    lowests=sorted(:,numdf);
+    lowests=sorted(:,numdf); %the value of the lowest 'positive' BC for each cell
     
-    %need to get rid of ones that aren't above actual signal cutoff
-    N=size(handles.bcs,1);
-    indlist=(1:N)';
+    %get rid of cells whose 'positive' barcodes are still very low
     inds1=sub2ind(size(ix),indlist,ix(:,numdf));
-    %         cutoff1=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
-    cutoff1=0;
-    toolow1=handles.bcs(inds1)<cutoff1;
+    toolow1=handles.bcs(inds1)<cutoff; %using bcs, not normbcs
+    lowests(toolow1)=nan;    
     
-    lowests(toolow1)=nan;
+    deltas=sorted(:,numdf)-sorted(:,numdf+1);  %separation between 'positive' and 'negative' barcodes for each cell
     
-    
-    deltas=sorted(:,numdf)-sorted(:,numdf+1);  %separation between 3rd and 4th highest normalized barcodes
-    
-else
+else %find largest separation to assign 'positive' and 'negative'
     
     [sorted,ix]=sort(handles.normbcs,2,'ascend');
     
     seps=diff(sorted,1,2);
     
-    N=size(handles.bcs,1);
-    indlist=(1:N)';
+    
     
     [~,locs]=sort(seps,2,'descend');  %locs are locations in ix of bc level that is on lower side of largest gap.  i.e., if locs is 5, the largest bc separation is between barcode ix(5) and ix(6)
     
-    %         cutoff=bmtrans(str2double(get(handles.cutoff_text,'string')),5);
-    cutoff=0;
+    indsabove=sub2ind(size(ix),indlist,locs(:,1)+1);  %+1 so that finding the lowest 'positive' bc
+    betws=ix(indsabove); %indices of which BC is lowest 'positive'
+    indsabove=sub2ind(size(handles.bcs),indlist,betws); 
+    % lowests=handles.bcs(inds);  %transformed values of lowest "good" BC %switched to normalized BCs
+    lowests=handles.normbcs(indsabove);  %normalized transformed values of lowest 'positive' BC
     
-    indsabove=sub2ind(size(ix),indlist,locs(:,1)+1);  %+1 so that finding the lowest "real" bc
-    betws=ix(indsabove);
-    indsabove=sub2ind(size(handles.bcs),indlist,betws);
-    % lowests=handles.bcs(inds);  %transformed values of lowest "good" bcs  %switched to normalized bcs
-    lowests=handles.normbcs(indsabove);  %normalized transformed values of lowest "good" bcs
-    
-    %%%finding the highest "non-real" bc
+    %%%finding the highest 'negative' BC
     indsbelow=sub2ind(size(ix),indlist,locs(:,1));
     betws=ix(indsbelow);
     indsbelow=sub2ind(size(handles.bcs),indlist,betws);
-    % nextlowests=handles.bcs(inds); %switched to normalized bcs
-    nextlowests=handles.normbcs(indsbelow);
+    % nextlowests=handles.bcs(inds); %switched to normalized BCs
+    nextlowests=handles.normbcs(indsbelow); %normalized transformed values of highest 'negative' BC
     
     %%%
     
@@ -411,9 +407,8 @@ for j=1:length(handles.masses)
     code_assign(:,j)=handles.normbcs(:,j) >= lowests;
 end
 
-% num_codes=length(handles.wellLabels);
 length_codes=size(handles.key,2);
-handles.gated=cell(1,handles.num_codes);
+handles.bcind=zeros(N,1);
 num_cells=size(handles.bcs,1);
 
 
@@ -422,7 +417,7 @@ for i=1:handles.num_codes
     for j=1:length_codes
         clust_inds=clust_inds & (code_assign(:,j)==handles.key(i,j));
     end
-    handles.gated{i}=clust_inds;
+    handles.bcind(clust_inds)=i;
 end
 
 % --- Executes on button press in save_button.
@@ -434,8 +429,6 @@ function save_button_Callback(hObject, eventdata, handles)
 
 FileName=get(handles.save_text,'string');
 
-% mahal_cutoff=str2double(get(handles.mahal_cutoff,'string'));
-% sep_cutoff=str2double(get(handles.delta_text,'string'));
 sep_cutoff=handles.sep_cutoff;
 
 PathName = uigetdir;
@@ -451,7 +444,7 @@ if PathName ~= 0
     c=[handles.c 'barcode'];
     n=length(c);
     
-    %% need to recompute handles.gated using all (not just sampled) cells
+    % need to recompute handles.bcind using all (not just sampled) cells
     
     handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.cofactor_val); %switching sampled bcs to full bcs
     
@@ -462,17 +455,15 @@ if PathName ~= 0
     % compute mahalanobis distances
     handles=delta_text_Callback(hObject, eventdata, handles);
     
-    
-    %% end re-computation of debarcoding
-    
-    not_inawell=true(size(handles.gated{1}));
-    
+        
+    not_inawell=true(size(handles.bcind));
     
     for i=1:length(handles.wellLabels)
         
         fprintf(fid,'%s\n',handles.wellLabels{i});  %printing out one line of _BarCodeList.txt
         
-        thiswell_bin = handles.gated{i} & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > sep_cutoff);
+        thiswell_bin = (handles.bcind==i) & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > sep_cutoff);
+        
         not_inawell(thiswell_bin)=false; %cells in this well removed from unassigned_binary
         
         data=zeros(sum(thiswell_bin),n);
@@ -628,7 +619,7 @@ clust_size=zeros(numseps,handles.num_codes);
 
 for i=1:numseps
     for j=1:length(handles.wellLabels)
-        clust_size(i,j) = sum(handles.gated{j} & (handles.deltas > handles.seprange(i)));
+        clust_size(i,j) = nnz(handles.bcind==j & (handles.deltas > handles.seprange(i)));
     end
 end
 
@@ -694,7 +685,7 @@ handles.sep_cutoff=str2double(get(handles.delta_text,'string'));
 handles.mahal=zeros(size(handles.deltas));
 % num_codes=length(handles.wellLabels);
 for i=1:handles.num_codes
-    in_bc=handles.gated{i} & (handles.deltas > handles.sep_cutoff);
+    in_bc=(handles.bcind==i) & (handles.deltas > handles.sep_cutoff);
     bci=handles.bcs(in_bc,:);
     if size(bci,1)>handles.num_codes
         handles.mahal(in_bc)=mahal(bci,bci);
@@ -791,7 +782,6 @@ end
 %sample 100000 cells and use until save
 num_cells=size(handles.x,1);
 sample_size=100000;
-% cofactor=str2double(get(handles.cofactor,'string'));
 if num_cells>sample_size
     handles.bcs=bmtrans(handles.x(randsample(num_cells,sample_size),handles.bc_cols),handles.cofactor_val);
 else
