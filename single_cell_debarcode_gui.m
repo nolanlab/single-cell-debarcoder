@@ -68,7 +68,7 @@ set(handles.plottype,'SelectedObject',handles.colorplot)
 set(handles.color_panel,'SelectedObject',handles.color_mahal)
 
 
-%%%  initialize parameters
+%  initialize parameters
 
 set(handles.delta_text,'string','0.1')
 handles.sep_cutoff=0.1;
@@ -78,7 +78,9 @@ handles.mahal_cutoff_val=30;
 
 % set(handles.cutoff_text,'string','0')
 
-handles.cofactor_val=str2double(get(handles.cofactor,'string'));
+set(handles.cofactor,'string',5);
+handles.cofactor_val=5;
+
 handles.xl=bmtrans([-20, 10000],handles.cofactor_val);
 [handles.xt,handles.xtl]=transform_ticks(handles.xl,handles.cofactor_val);
 
@@ -272,7 +274,7 @@ if ~isempty(wellnum)
                     elseif j>0 && i==j-1 %&& any([i j])
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
                         if nnz(handles.bcind==wellnum) ~= 0
-                            [binsize,binloc]=hist(handles.bcs(handles.bcind==wellnum & handles.mahal<handles.mahal_cutoff_val,j),100);
+                            [binsize,binloc]=hist(handles.bcs(thiswell_bin,j),100);
                             bar(binloc,binsize,'edgecolor','none','facecolor',[0 0.5 0])
                         end
                         set(ax,'xlim',handles.xl,'xtick',[],'ytick',[])
@@ -599,7 +601,6 @@ tb=text(0.5,0.5,'Debarcoding ...','horizontalalignment','center','verticalalignm
 
 set(gcf,'pointer','watch')
 drawnow
-
 
 
 handles=compute_debarcoding(handles);
@@ -1048,6 +1049,7 @@ if popval < length(handles.wellLabels);
     set(handles.well_popup,'value',popval+1);
 end
 plot_button_Callback(hObject, eventdata, handles)
+
 
 function bc_cols=find_bc_cols_by_mass(colnames, masses)
 
