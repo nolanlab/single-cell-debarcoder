@@ -57,8 +57,17 @@ handles.output = hObject;
 
 % setup default initial view
 
+co=[     0    0.5000    0.4000
+    0.7500         0    0.7500
+    1.0000    0.8000         0
+         0         0    0.7500
+    1.0000    0.3750         0
+         0    0.7500    1.0000
+    0.4000    0.4000    0.4000];
+
 handles.parent=gcf;
-set(handles.parent,'WindowStyle','normal')
+set(handles.parent,'WindowStyle','normal','Name','Single Cell Debarcoder',...
+    'DefaultAxesColorOrder',co)
 
 set(handles.ax,'visible','off')
 set(handles.biax_panel,'visible','off')
