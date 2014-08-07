@@ -1,2 +1,1 @@
-single-cell-debarcoder
-======================
+The single cell debarcoder is a tool for the deconvolution of a barcoded FCS file into separate FCS files of each barcode population. For more information, see the [wiki](https://github.com/nolanlab/single-cell-debarcoder/wiki).
