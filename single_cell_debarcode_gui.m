@@ -179,7 +179,7 @@ if ~isempty(wellnum)
                 %
                 set(ax(1),'ytick',handles.xt,'yticklabel',handles.xtl)
                 set(get(ax(1),'Ylabel'),'String','untransformed values','fontsize',12)
-                set(get(ax(1),'Ylabel'),'String','asinh-transformed values','fontsize',12)
+                set(get(ax(1),'Ylabel'),'String','Barcode intensities','fontsize',12)
                 
                 legend(handles.leg,'location','northeastoutside')
             end
@@ -355,7 +355,8 @@ if length(unique(sum(handles.key,2)))==1 %doublet-free
     
     lowests=sorted(:,numdf); %the value of the lowest 'positive' BC for each cell
     
-    %get rid of cells whose 'positive' barcodes are still very low
+    %get rid of cells whose 'positive' barcodes are still very low (not
+    % needed without the +/-100 routine
     inds1=sub2ind(size(ix),indlist,ix(:,numdf));
     toolow1=handles.bcs(inds1)<cutoff; %using bcs, not normbcs
     lowests(toolow1)=nan;    
@@ -637,23 +638,47 @@ delete(tb)
 
 %%% 20140520
 
-handles.ax=subplot(3,1,[1 2],'parent',handles.ax_panel);
+handles.ax=subplot(4,1,[2 3 4],'parent',handles.ax_panel,'box','off');
 
 num_cells=size(handles.bcs,1);
-handles.lines=plot(handles.ax,handles.seprange,100/num_cells*clust_size);
+set(gca,'colororder',flipud(jet(20)))
+hold on
+handles.lines=plot(handles.ax,handles.seprange,num_cells*clust_size/100000);
 set(get(handles.ax,'XLabel'),'String','Barcode separation','fontsize',12)
-set(get(handles.ax,'YLabel'),'String','Percent of cells by well','fontsize',12)
+set(get(handles.ax,'YLabel'),'String','Event yield after debarcoding','fontsize',12)
+% set(gca,'ylim',[0 8000])
+wn={'111000'
+    '110100'
+    '110010'
+    '110001'
+    '101100'
+    '101010'
+    '101001'
+    '100110'
+    '100101'
+    '100011'
+    '011100'
+    '011010'
+    '011001'
+    '010110'
+    '010101'
+    '010011'
+    '001110'
+    '001101'
+    '001011'
+    '000111'};
+% legend(wn)
 % ylabel('Number of cells','fontsize',12)
 
 set(handles.lines,'ButtonDownFcn',{@select_line,handles});
 % handles.ax=ax(1);
 
-ax2=subplot(3,1,3,'parent',handles.ax_panel);
+ax2=subplot(4,1,1,'parent',handles.ax_panel);
 [hi,xi]=hist(handles.deltas,100);
-bar(ax2,xi,100/num_cells*hi)
-set(get(ax2,'XLabel'),'String','Barcode Separation','fontsize',12)
-set(get(ax2,'YLabel'),'String','Percent of cells','fontsize',12)
-set(ax2,'xlim',[0 1])
+bar(ax2,xi,num_cells/100000*hi)
+set(get(ax2,'XLabel'),'String','Barcode separation','fontsize',12)
+set(get(ax2,'YLabel'),'String','Event count','fontsize',12)
+set(ax2,'xlim',[0 1],'box','off')
 shading flat
 colormap([0 0.5 0.4])
 
