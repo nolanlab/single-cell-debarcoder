@@ -90,8 +90,15 @@ handles.mahal_cutoff_val=30;
 % set(handles.cofactor,'string',5);
 handles.default_cofactor=5;
 
-handles.xl=bmtrans([-20, 10000],handles.default_cofactor);
-[handles.xt,handles.xtl]=transform_ticks(handles.xl,handles.default_cofactor);
+axticks=load('axticks.mat');
+
+handles.raw_xl=[-10, 10000];
+handles.raw_xt=axticks.xt;
+
+handles.default_xl=bmtrans(handles.raw_xl,handles.default_cofactor);
+handles.default_xt=bmtrans(axticks.xt,handles.default_cofactor);
+
+handles.xtl=axticks.xtl;
 
 %remove unwanted toolbar options
 set(hObject,'toolbar','figure');
@@ -177,7 +184,7 @@ if ~isempty(wellnum)
                 %                 set(h2,'visible','off')
                 %                 set(h1,'marker','.','linestyle','none')
                 %
-                set(ax(1),'ytick',handles.xt,'yticklabel',handles.xtl)
+                set(ax(1),'ytick',handles.default_xt,'yticklabel',handles.xtl)
                 set(get(ax(1),'Ylabel'),'String','untransformed values','fontsize',12)
                 set(get(ax(1),'Ylabel'),'String','Barcode intensities','fontsize',12)
                 
@@ -214,6 +221,11 @@ if ~isempty(wellnum)
             hold on
             
             thiswell=handles.bcs(thiswell_bin,[xcol ycol]);
+            
+            %20140904
+            thiswell=handles.cofactored_bcs(thiswell_bin,[xcol ycol]);
+            %
+            
             mdists=handles.mahal(thiswell_bin);
             
             seps=handles.deltas(thiswell_bin);
@@ -239,9 +251,16 @@ if ~isempty(wellnum)
                 
             end
             
-            set(gca,'xlim',handles.xl,'ylim',handles.xl,...
-                'xtick',handles.xt,'xticklabel',handles.xtl,...
-                'ytick',handles.xt,'yticklabel',handles.xtl)
+            set(gca,'xlim',handles.default_xl,'ylim',handles.default_xl,...
+                'xtick',handles.default_xt,'xticklabel',handles.xtl,...
+                'ytick',handles.default_xt,'yticklabel',handles.xtl)
+            
+            %20140904
+            set(gca,'xlim',handles.cofactored_xl(:,xcol),'ylim',handles.cofactored_xl(:,ycol),...
+                'xtick',handles.cofactored_xt(:,xcol),'xticklabel',handles.xtl,...
+                'ytick',handles.cofactored_xt(:,ycol),'yticklabel',handles.xtl)
+            %
+            
             title(num2str(handles.key(wellnum,:)),'fontweight','bold','fontsize',12);
             
         case 'All BC Biaxials'
@@ -264,6 +283,9 @@ if ~isempty(wellnum)
                         hold on
                         
                         thiswell=handles.bcs(thiswell_bin,[j i+1]);
+                        %20140904
+                        thiswell=handles.cofactored_bcs(thiswell_bin,[j i+1]);
+                        %
                         mdists=handles.mahal(thiswell_bin);
                         seps=handles.deltas(thiswell_bin);
                         
@@ -279,14 +301,17 @@ if ~isempty(wellnum)
                             end
                         end
                         
-                        set(ax,'xlim',handles.xl,'ylim',handles.xl,'xtick',[],'ytick',[])
+                        set(ax,'xlim',handles.cofactored_xl(:,j),'ylim',handles.cofactored_xl(:,i+1),'xtick',[],'ytick',[])
                     elseif j>0 && i==j-1 %&& any([i j])
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
                         if nnz(handles.bcind==wellnum) ~= 0
                             [binsize,binloc]=hist(handles.bcs(thiswell_bin,j),100);
+                            %20140904
+                            [binsize,binloc]=hist(handles.cofactored_bcs(thiswell_bin,j),100);
+                            %
                             bar(binloc,binsize,'edgecolor','none','facecolor',[0 0.5 0])
                         end
-                        set(ax,'xlim',handles.xl,'xtick',[],'ytick',[])
+                        set(ax,'xlim',handles.cofactored_xl(:,j),'xtick',[],'ytick',[])
                     elseif i==n && j>0
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
                         set(ax,'visible','off')
@@ -879,10 +904,16 @@ end
 
 %retransform bcs and norm_vals
 cofactored_bcs=zeros(size(handles.bcs));
+
 for i=1:handles.num_masses
 cofactored_bcs(:,i)=asinh(handles.default_cofactor*sinh(handles.bcs(:,i))/neg_cofactor(i));
 norm_vals(:,i)=asinh(handles.default_cofactor*sinh(norm_vals(:,i))/neg_cofactor(i)); %may not use this
+handles.cofactored_xt(:,i)=bmtrans(handles.raw_xt,neg_cofactor(i));
 end
+handles.cofactored_xl=handles.cofactored_xt([1 end],:);
+
+handles.cofactored_bcs=cofactored_bcs;
+handles.cofactors=neg_cofactor;
 
 %
 handles.normbcs=normalize_bcs(cofactored_bcs,norm_vals,handles);
