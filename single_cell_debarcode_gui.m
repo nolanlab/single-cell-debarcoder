@@ -87,11 +87,11 @@ handles.mahal_cutoff_val=30;
 
 % set(handles.cutoff_text,'string','0')
 
-set(handles.cofactor,'string',5);
-handles.cofactor_val=5;
+% set(handles.cofactor,'string',5);
+handles.default_cofactor=5;
 
-handles.xl=bmtrans([-20, 10000],handles.cofactor_val);
-[handles.xt,handles.xtl]=transform_ticks(handles.xl,handles.cofactor_val);
+handles.xl=bmtrans([-20, 10000],handles.default_cofactor);
+[handles.xt,handles.xtl]=transform_ticks(handles.xl,handles.default_cofactor);
 
 %remove unwanted toolbar options
 set(hObject,'toolbar','figure');
@@ -456,7 +456,7 @@ if PathName ~= 0
     
     % need to recompute handles.bcind using all (not just sampled) cells
     
-    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.cofactor_val); %switching sampled bcs to full bcs
+    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.default_cofactor); %switching sampled bcs to full bcs
     
     handles.normbcs=normalize_bcs(handles.bcs);
     
@@ -512,12 +512,24 @@ else
     return
 end
 
-function normed_bcs = normalize_bcs(raw_bcs)
+function normed_bcs = normalize_bcs(raw_bcs,norm_vals,handles)
 
+% if nargin==1
 percs=prctile(raw_bcs,[1 99]);
 ranges=diff(percs);
 deltas=bsxfun(@minus,raw_bcs,percs(1,:));
 normed_bcs=bsxfun(@rdivide,deltas,ranges);
+% else
+%    if ~isfield(handles,'bcind')
+%        error('bcind must be computed before custom normalization')
+%    end
+%    normed_bcs=zeros(size(raw_bcs));
+%    for i=1:handles.num_codes
+%        bci=handles.bcind==i;
+%        normed_bcs(bci,handles.key(i,:)==0)=raw_bcs(bci,handles.key(i,:)==0);
+%        normed_bcs(bci,handles.key(i,:)==1)=bsxfun(@rdivide,raw_bcs(bci,handles.key(i,:)==1),norm_vals(i,handles.key(i,:)==1));
+%    end
+% end
 
 %temp
 % percs=prctile(raw_bcs(:),[1 99]);
@@ -818,48 +830,63 @@ end
 num_cells=size(handles.x,1);
 sample_size=100000;
 if num_cells>sample_size
-    handles.bcs=bmtrans(handles.x(randsample(num_cells,sample_size),handles.bc_cols),handles.cofactor_val);
+    handles.bcs=bmtrans(handles.x(randsample(num_cells,sample_size),handles.bc_cols),handles.default_cofactor);
 else
-    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.cofactor_val);  %matrix of each cell's bc channels, transformed
+    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.default_cofactor);  %matrix of each cell's bc channels, transformed
 end
 
 handles.normbcs=normalize_bcs(handles.bcs);
 
-%20140904
+%% 20140904 -- can comment this section to recreate old behavior
 handles=compute_debarcoding(handles);
-handles.bcind(handles.deltas<0.3)=0;
-N=length(handles.bcind);
+
+temp_bcind=handles.bcind;
+temp_bcind(handles.deltas<0.3)=0;
+N=length(temp_bcind);
+
 
 neg_bcs=cell(1,handles.num_masses);
-pos_bcs=cell(1,handles.num_masses);
+% pos_bcs=cell(1,handles.num_masses);
 bc_list=1:handles.num_codes;
 neg_cofactor=zeros(1,handles.num_masses);
-pos_med=zeros(1,handles.num_masses);
+% pos_med=zeros(1,handles.num_masses);
 for i=1:handles.num_masses
     neg_list=bc_list(handles.key(:,i)==0);
-    pos_list=bc_list(handles.key(:,i)==1);
+%     pos_list=bc_list(handles.key(:,i)==1);
     neg_cells=false(N,1);
-    pos_cells=false(N,1);
+%     pos_cells=false(N,1);
     for j=neg_list
-        neg_cells=neg_cells | handles.bcind==j;
+        neg_cells=neg_cells | temp_bcind==j;
     end
-    for j=pos_list
-        pos_cells=pos_cells | handles.bcind==j;
-    end
+%     for j=pos_list
+%         pos_cells=pos_cells | temp_bcind==j;
+%     end
     neg_bcs{i}=handles.bcs(neg_cells,i); %this was already transformed using default cofactor
-    pos_bcs{i}=handles.bcs(pos_cells,i); %this was already transformed using default cofactor
-    neg_cofactor(i)=handles.cofactor_val*sinh(prctile(neg_bcs{i},95)); %untransformed to raw data val
-    pos_med(i)=handles.cofactor_val*sinh(median(pos_bcs{i})); %untransformed to raw data val
+%     pos_bcs{i}=handles.bcs(pos_cells,i); %this was already transformed using default cofactor
+    neg_cofactor(i)=handles.default_cofactor*sinh(prctile(neg_bcs{i},95)); %untransformed to raw data val
+%     pos_med(i)=handles.default_cofactor*sinh(median(pos_bcs{i})); %untransformed to raw data val
 end
 
 neg_cofactor
 
+%find median of pos bcs for each barcode sample
+norm_vals=zeros(size(handles.key));
+for i=1:handles.num_codes
+    bci=handles.bcs(handles.bcind==i,:);
+    pos_masses=handles.key(i,:)==1;
+    norm_vals(i,pos_masses)=median(bci(:,pos_masses));
+end
+
+%retransform bcs and norm_vals
 cofactored_bcs=zeros(size(handles.bcs));
 for i=1:handles.num_masses
-cofactored_bcs(:,i)=asinh(handles.cofactor_val*sinh(handles.bcs(:,i))/neg_cofactor(i));
+cofactored_bcs(:,i)=asinh(handles.default_cofactor*sinh(handles.bcs(:,i))/neg_cofactor(i));
+norm_vals(:,i)=asinh(handles.default_cofactor*sinh(norm_vals(:,i))/neg_cofactor(i)); %may not use this
 end
-handles.normbcs=normalize_bcs(cofactored_bcs);
+
 %
+handles.normbcs=normalize_bcs(cofactored_bcs,norm_vals,handles);
+%% end 20140904
 
 
 set(handles.x_popup,'value',1)
