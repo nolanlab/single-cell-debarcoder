@@ -414,19 +414,17 @@ end
 
 handles.deltas=deltas;
 
-code_assign=false(N,length(handles.masses));  %rows will be barcodes of each cell
-for j=1:length(handles.masses)
+code_assign=false(N,handles.num_masses);  %rows will be barcodes of each cell
+for j=1:handles.num_masses
     code_assign(:,j)=handles.normbcs(:,j) >= lowests;
 end
 
-length_codes=size(handles.key,2);
 handles.bcind=zeros(N,1);
 num_cells=size(handles.bcs,1);
 
-
 for i=1:handles.num_codes
     clust_inds=true(num_cells,1);
-    for j=1:length_codes
+    for j=1:handles.num_masses
         clust_inds=clust_inds & (code_assign(:,j)==handles.key(i,j));
     end
     handles.bcind(clust_inds)=i;
@@ -781,8 +779,10 @@ if handles.bcpathname ~= 0
     set(handles.key_text,'string',str);
     
     handles.masses=cellstr(num2str(x.data(1,:)'));
+    handles.num_masses=length(handles.masses);
     handles.wellLabels=x.textdata(2:end);
     handles.num_codes=length(handles.wellLabels);
+    
     set(handles.well_popup,'string',handles.wellLabels)
     
     handles.key=x.data(2:end,:);
@@ -824,6 +824,42 @@ else
 end
 
 handles.normbcs=normalize_bcs(handles.bcs);
+
+%20140904
+handles=compute_debarcoding(handles);
+handles.bcind(handles.deltas<0.3)=0;
+N=length(handles.bcind);
+
+neg_bcs=cell(1,handles.num_masses);
+pos_bcs=cell(1,handles.num_masses);
+bc_list=1:handles.num_codes;
+neg_cofactor=zeros(1,handles.num_masses);
+pos_med=zeros(1,handles.num_masses);
+for i=1:handles.num_masses
+    neg_list=bc_list(handles.key(:,i)==0);
+    pos_list=bc_list(handles.key(:,i)==1);
+    neg_cells=false(N,1);
+    pos_cells=false(N,1);
+    for j=neg_list
+        neg_cells=neg_cells | handles.bcind==j;
+    end
+    for j=pos_list
+        pos_cells=pos_cells | handles.bcind==j;
+    end
+    neg_bcs{i}=handles.bcs(neg_cells,i); %this was already transformed using default cofactor
+    pos_bcs{i}=handles.bcs(pos_cells,i); %this was already transformed using default cofactor
+    neg_cofactor(i)=handles.cofactor_val*sinh(prctile(neg_bcs{i},95)); %untransformed to raw data val
+    pos_med(i)=handles.cofactor_val*sinh(median(pos_bcs{i})); %untransformed to raw data val
+end
+
+neg_cofactor
+
+cofactored_bcs=zeros(size(handles.bcs));
+for i=1:handles.num_masses
+cofactored_bcs(:,i)=asinh(handles.cofactor_val*sinh(handles.bcs(:,i))/neg_cofactor(i));
+end
+handles.normbcs=normalize_bcs(cofactored_bcs);
+%
 
 
 set(handles.x_popup,'value',1)
@@ -1155,7 +1191,14 @@ xt=bmtrans(xticks,cofactor);
 
 
 function y=bmtrans(x,c)
-y=asinh(1/c*x);
+num_cols=size(x,2);
+if length(c)==1 
+    c=repmat(c,[1 num_cols]);
+end
+y=zeros(size(x));
+for i=1:num_cols
+y(:,i)=asinh(1/c(i)*x(:,i));
+end
 
 function cofactor_Callback(hObject, eventdata, handles)
 % hObject    handle to cofactor (see GCBO)
