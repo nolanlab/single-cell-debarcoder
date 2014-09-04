@@ -128,7 +128,7 @@ function plot_changefcn(hObject,eventdata,handles)
 selectedobj = get(handles.plottype,'SelectedObject');
 
 switch get(selectedobj,'string')
-    case 'Color'
+    case 'Event'
         set(handles.biax_panel,'visible','off')
         set(handles.color_panel,'visible','off')
     case 'Single Biaxial'
@@ -157,7 +157,7 @@ if ~isempty(wellnum)
     set(gcf,'pointer','watch')
     drawnow;
     switch get(selectedobj,'string')
-        case 'Color'
+        case 'Event'
             
             oldax=get(handles.ax_panel,'children');
             delete(oldax)
