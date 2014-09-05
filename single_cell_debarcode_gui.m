@@ -1193,7 +1193,7 @@ handles.mahal_cutoff_val=str2double(get(handles.mahal_cutoff,'string'));
 
 within_cutoffs=handles.mahal<handles.mahal_cutoff_val & handles.deltas>handles.sep_cutoff;
 for i=1:handles.num_codes
-    handles.well_yield(i)=nnz(handles.bcind==i & within_cutoffs);
+    handles.well_yield(i)=handles.sample_ratio*nnz(handles.bcind==i & within_cutoffs);
 end
 
 selectedobj=get(handles.plottype,'SelectedObject');
