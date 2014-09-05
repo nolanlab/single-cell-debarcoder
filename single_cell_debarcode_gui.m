@@ -538,8 +538,8 @@ if PathName ~= 0
     handles=compute_debarcoding(handles);
     
     % compute mahalanobis distances
-    handles=delta_text_Callback(hObject, eventdata, handles);
-    
+%     handles=delta_text_Callback(hObject, eventdata, handles);
+    handles=compute_mahal(handles);
         
     not_inawell=true(size(handles.bcind));
     
