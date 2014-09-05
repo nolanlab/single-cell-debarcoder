@@ -751,11 +751,6 @@ set(get(handles.ax,'XLabel'),'String','Barcode separation','fontsize',12)
 set(get(handles.ax,'YLabel'),'String','Event yield after debarcoding','fontsize',12)
 set(handles.lines,'ButtonDownFcn',{@select_line,handles});
 
-fi=ksdensity(handles.deltas,0:0.01:1);
-save fi fi
-
-
-
 
 function select_line(button,eventdata,handles)
 
