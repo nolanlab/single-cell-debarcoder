@@ -204,7 +204,7 @@ thiswell_bin = (handles.bcind==wellnum) & (handles.mahal<handles.mahal_cutoff_va
 
 if ~isempty(wellnum)
     
-    set(gcf,'pointer','watch')
+    set(handles.parent,'pointer','watch')
     drawnow;
     switch get(selectedobj,'string')
         case 'Separation'
@@ -384,7 +384,7 @@ if ~isempty(wellnum)
     end
     
     drawnow
-    set(gcf,'pointer','arrow')
+    set(handles.parent,'pointer','arrow')
     drawnow
     
 else
@@ -518,7 +518,7 @@ sep_cutoff=handles.sep_cutoff;
 PathName = uigetdir;
 if PathName ~= 0
     
-    set(gcf,'pointer','watch')
+    set(handles.parent,'pointer','watch')
     drawnow
     
 %     fid=fopen([PathName filesep FileName '_BarCodeList.txt'],'w');  %this is to record the barcode labels for use later with spade
@@ -582,13 +582,13 @@ if PathName ~= 0
     fprintf(fid,'%s\n',['Output saved to: ' PathName filesep]);
     fclose(fid);
     
-    set(gcf,'pointer','arrow')
+    set(handles.parent,'pointer','arrow')
     drawnow
 else
     return
 end
 
-function normed_bcs = normalize_bcs(raw_bcs,norm_vals,handles)
+function normed_bcs = normalize_bcs(raw_bcs)
 
 % if nargin==1
 percs=prctile(raw_bcs,[1 99]);
@@ -628,7 +628,7 @@ end
 
 if handles.pathname ~= 0
     
-    set(gcf,'pointer','watch')
+    set(handles.parent,'pointer','watch')
     drawnow
     
     if iscell(files) %more than 1 file selected, which means concatenation
@@ -691,11 +691,11 @@ end
 ch=get(handles.ax_panel,'children');
 delete(ch)
 handles.ax=axes('parent',handles.ax_panel);
-set(gcf,'currentaxes',handles.ax)
+set(handles.parent,'currentaxes',handles.ax)
 set(handles.ax,'visible','off')
 tb=text(0.5,0.5,'Debarcoding ...','horizontalalignment','center','verticalalignment','middle','fontsize',14);
 
-set(gcf,'pointer','watch')
+set(handles.parent,'pointer','watch')
 drawnow
 
 
@@ -721,6 +721,8 @@ for i=1:numseps
 end
 
 delete(tb)
+
+set(handles.plottype,'SelectedObject',handles.separation_plot)
 
 % handles.ax=axes('parent',handles.ax_panel);
 % handles.ax=subplot(4,1,[2 3 4],'parent',handles.ax_panel,'box','off');
@@ -772,7 +774,7 @@ set(yield_axis,'xlim',[0 1],'box','off')
 % colormap([0 0.5 0.4])
 
 drawnow
-set(gcf,'pointer','arrow')
+set(handles.parent,'pointer','arrow')
 drawnow
 
 
@@ -899,12 +901,12 @@ try
     handles.bc_cols=find_bc_cols_by_mass(handles.c,handles.masses);
 catch err
     if strcmp('not all barcode channels found',err.message)
-        set(gcf,'pointer','arrow')
+        set(handles.parent,'pointer','arrow')
         msgbox('Check your barcode key.')
         guidata(handles.parent,handles)
         return
     else
-        set(gcf,'pointer','arrow')
+        set(handles.parent,'pointer','arrow')
         rethrow(err)
     end
 end
@@ -953,29 +955,38 @@ for i=1:handles.num_masses
 %     pos_med(i)=handles.default_cofactor*sinh(median(pos_bcs{i})); %untransformed to raw data val
 end
 
-%find median of pos bcs for each barcode sample
-norm_vals=zeros(size(handles.key));
-for i=1:handles.num_codes
-    bci=handles.bcs(handles.bcind==i,:);
-    pos_masses=handles.key(i,:)==1;
-    norm_vals(i,pos_masses)=median(bci(:,pos_masses));
+if any(isnan(neg_cofactor))
+    warndlg('Check your barcode key. You may have included a barcode metal that is constant across all occupied samples.')
+    neg_cofactor(isnan(neg_cofactor))=5;
 end
+
+neg_cofactor(neg_cofactor<5)=5; %5 is default minimum
+neg_cofactor(neg_cofactor>100)=100; %5 is default minimum
+
+
+% %find median of pos bcs for each barcode sample
+% norm_vals=zeros(size(handles.key));
+% for i=1:handles.num_codes
+%     bci=handles.bcs(handles.bcind==i,:);
+%     pos_masses=handles.key(i,:)==1;
+%     norm_vals(i,pos_masses)=median(bci(:,pos_masses));
+% end
 
 %retransform bcs and norm_vals
 cofactored_bcs=zeros(size(handles.bcs));
 
 for i=1:handles.num_masses
 cofactored_bcs(:,i)=asinh(handles.default_cofactor*sinh(handles.bcs(:,i))/neg_cofactor(i));
-norm_vals(:,i)=asinh(handles.default_cofactor*sinh(norm_vals(:,i))/neg_cofactor(i)); %may not use this
+% norm_vals(:,i)=asinh(handles.default_cofactor*sinh(norm_vals(:,i))/neg_cofactor(i)); %may not use this
 handles.cofactored_xt(:,i)=bmtrans(handles.raw_xt,neg_cofactor(i));
 end
 handles.cofactored_xl=handles.cofactored_xt([1 end],:);
 
-handles.cofactored_bcs=cofactored_bcs;
 handles.cofactors=neg_cofactor;
+handles.cofactored_bcs=cofactored_bcs;
 
 %
-handles.normbcs=normalize_bcs(cofactored_bcs,norm_vals,handles);
+handles.normbcs=normalize_bcs(cofactored_bcs);
 %% end 20140904
 
 handles=debarcode_button_Callback(hObject, eventdata, handles);
