@@ -70,13 +70,14 @@ set(handles.parent,'WindowStyle','normal','Name','Single Cell Debarcoder',...
     'DefaultAxesColorOrder',co)
 
 set(handles.ax,'visible','off')
-set(handles.yield_axis,'visible','off')
+% set(handles.yield_axis,'visible','off')
 set(handles.biax_panel,'visible','off')
 set(handles.color_panel,'visible','off')
 set(handles.plottype,'SelectionChangeFcn',{@plot_changefcn,handles})
-set(handles.plottype,'SelectedObject',handles.colorplot)
+set(handles.plottype,'SelectedObject',handles.separation_plot)
+set(handles.color_panel,'SelectionChangeFcn',{@color_changefcn,handles})
 set(handles.color_panel,'SelectedObject',handles.color_mahal)
-
+set(handles.plot_button,'visible','off')
 
 %  initialize parameters
 
@@ -131,20 +132,34 @@ function varargout = single_cell_debarcode_gui_OutputFcn(hObject, eventdata, han
 % Get default command line output from handles structure
 varargout{1} = handles.output;
 
+function color_changefcn(hObject,eventdata,handles)
+handles=guidata(handles.parent);
+plot_button_Callback(hObject,eventdata,handles)
+
 function plot_changefcn(hObject,eventdata,handles)
 %switches between views for the different plotting options
 selectedobj = get(handles.plottype,'SelectedObject');
-
+handles=guidata(handles.parent);
 switch get(selectedobj,'string')
+    case 'Separation'
+        set(handles.biax_panel,'visible','off')
+        set(handles.color_panel,'visible','off')
+        debarcode_button_Callback(hObject,eventdata,handles);
     case 'Event'
         set(handles.biax_panel,'visible','off')
         set(handles.color_panel,'visible','off')
+        plot_well_yields(handles)
+        plot_button_Callback(hObject, eventdata, handles)
     case 'Single Biaxial'
         set(handles.biax_panel,'visible','on')
         set(handles.color_panel,'visible','on')
-    case 'All BC Biaxials'
+        plot_well_yields(handles)
+        plot_button_Callback(hObject, eventdata, handles)
+    case 'All Barcode Biaxials'
         set(handles.biax_panel,'visible','off')
         set(handles.color_panel,'visible','on')
+        plot_well_yields(handles)
+        plot_button_Callback(hObject, eventdata, handles)
 end
 
 % --- Executes on button press in plot_button.
@@ -173,6 +188,8 @@ if ~isempty(wellnum)
     set(gcf,'pointer','watch')
     drawnow;
     switch get(selectedobj,'string')
+        case 'Separation'
+            debarcode_button_Callback(hObject,eventdata,handles);
         case 'Event'
             
             oldax=get(handles.ax_panel,'children');
@@ -272,7 +289,7 @@ if ~isempty(wellnum)
             
             title(num2str(handles.key(wellnum,:)),'fontweight','bold','fontsize',12);
             
-        case 'All BC Biaxials'
+        case 'All Barcode Biaxials'
             oldax=get(handles.ax_panel,'children');
             delete(oldax)
             n=size(handles.bcs,2);
@@ -615,9 +632,9 @@ if handles.pathname ~= 0
     
     set(handles.file_text,'string',str);
     
-    guidata(handles.parent,handles)
+    handles=load_bc_data(hObject, eventdata,handles);
     
-    load_bc_data(hObject, eventdata,handles)
+    guidata(hObject,handles)
     
 %     ch=get(handles.ax_panel,'children');
 %     delete(ch)
@@ -722,12 +739,12 @@ delete(ch)
 yield_axis=axes('parent',handles.yield_panel);
 
 [hi,xi]=hist(handles.deltas,100);
-bar(yield_axis,xi,num_cells/100000*hi)
+bar(yield_axis,xi,num_cells/100000*hi,'facecolor',[0 0.5 0.4])
 set(get(yield_axis,'XLabel'),'String','Barcode separation','fontsize',12)
 set(get(yield_axis,'YLabel'),'String','Event count','fontsize',12)
 set(yield_axis,'xlim',[0 1],'box','off')
-shading flat
-colormap([0 0.5 0.4])
+% shading flat
+% colormap([0 0.5 0.4])
 
 drawnow
 set(gcf,'pointer','arrow')
@@ -840,18 +857,18 @@ if handles.bcpathname ~= 0
     
     handles.well_yield=zeros(handles.num_codes,1);
     
-    guidata(handles.parent,handles)
     
     %if fcs file already loaded, update which are the bc cols and the bc data i
     if isfield(handles,'c')
-        load_bc_data(hObject, eventdata,handles)
+        handles=load_bc_data(hObject, eventdata,handles);
     end
-    
+    guidata(hObject,handles)
+
 else
     return
 end
 
-function load_bc_data(hObject, eventdata, handles)
+function handles=load_bc_data(hObject, eventdata, handles)
 
 try
     handles.bc_cols=find_bc_cols_by_mass(handles.c,handles.masses);
@@ -908,8 +925,6 @@ for i=1:handles.num_masses
 %     pos_med(i)=handles.default_cofactor*sinh(median(pos_bcs{i})); %untransformed to raw data val
 end
 
-neg_cofactor
-
 %find median of pos bcs for each barcode sample
 norm_vals=zeros(size(handles.key));
 for i=1:handles.num_codes
@@ -958,7 +973,7 @@ for i=1:length(handles.masses)
     end
 end
 
-guidata(handles.parent,handles)
+% guidata(handles.parent,handles)
 
 
 
@@ -993,6 +1008,7 @@ function x_popup_Callback(hObject, eventdata, handles)
 % Hints: contents = cellstr(get(hObject,'String')) returns x_popup contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from x_popup
 
+plot_button_Callback(hObject, eventdata, handles)
 
 % --- Executes during object creation, after setting all properties.
 function x_popup_CreateFcn(hObject, eventdata, handles)
@@ -1016,6 +1032,7 @@ function y_popup_Callback(hObject, eventdata, handles)
 % Hints: contents = cellstr(get(hObject,'String')) returns y_popup contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from y_popup
 
+plot_button_Callback(hObject, eventdata, handles)
 
 % --- Executes during object creation, after setting all properties.
 function y_popup_CreateFcn(hObject, eventdata, handles)
@@ -1169,12 +1186,16 @@ function plot_well_yields(handles)
 
 ch=get(handles.yield_panel,'children');
 delete(ch)
-yield_axis=axes('parent',handles.yield_panel);
+yield_axis=subplot(5,1,[2 3 4],'parent',handles.yield_panel);
 bar(yield_axis,handles.well_yield,'facecolor',[0.4 0.4 0.4])
 ylabel('Cell count')
-set(yield_axis,'xlim',[0 handles.num_codes+1],...
-    'xtick',1:handles.num_codes,...
-    'xticklabel',handles.wellLabels)
+set(yield_axis,'xlim',[0 handles.num_codes+1],'xtick',[])
+% ,...
+%     'xtick',1:handles.num_codes,...
+%     'xticklabel',handles.wellLabels)
+yl=get(yield_axis,'ylim');
+text(1:handles.num_codes,-yl(2)/15*ones(1,handles.num_codes),handles.wellLabels,'rotation',315)
+title(yield_axis,'Barcode Yields With Current Filtering Parameters','fontsize',12)
 
 
 
@@ -1243,48 +1264,6 @@ end
 if any(bc_cols == 0)
     error('not all barcode channels found')
 end
-
-function [xt,xtl]=transform_ticks(xL,cofactor)
-
-xticks=[];
-xtl=[];
-
-if xL(1)<0
-    xLa=ceil(log10(abs(cofactor*sinh(xL(1)))));
-    xLb=ceil(log10(cofactor*sinh(xL(2))));
-    ints=-1:0.1:-0.2;
-    
-    Ind=xLa;
-    for i=1:xLa
-        xticks=[xticks ints*10^Ind];
-        xtl=[xtl; num2str(-10^Ind); cell(8,1)];
-        Ind=Ind-1;
-    end
-    xticks=[xticks -1 0 1];
-    xtl=[xtl; cell(1,1); '0'; cell(1,1)];
-    
-    ints=0.2:0.1:1;
-    
-    for i=1:xLb
-        xticks=[xticks ints*10^i];
-        xtl=[xtl; cell(8,1); num2str(10^i)];
-    end
-else
-    xLb=ceil(log10(cofactor*sinh(xL(2))));
-    xticks=[xticks  0 1];
-    xtl=['0'; cell(1,1)];
-    
-    ints=0.2:0.1:1;
-    
-    for i=1:xLb
-        xticks=[xticks ints*10^i];
-        xtl=[xtl; cell(8,1); num2str(10^i)];
-    end
-    
-end
-
-xt=bmtrans(xticks,cofactor);
-
 
 function y=bmtrans(x,c)
 num_cols=size(x,2);
