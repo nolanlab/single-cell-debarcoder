@@ -70,6 +70,7 @@ set(handles.parent,'WindowStyle','normal','Name','Single Cell Debarcoder',...
     'DefaultAxesColorOrder',co)
 
 set(handles.ax,'visible','off')
+set(handles.yield_axis,'visible','off')
 set(handles.biax_panel,'visible','off')
 set(handles.color_panel,'visible','off')
 set(handles.plottype,'SelectionChangeFcn',{@plot_changefcn,handles})
@@ -79,7 +80,7 @@ set(handles.color_panel,'SelectedObject',handles.color_mahal)
 
 %  initialize parameters
 
-set(handles.delta_text,'string','0.1')
+set(handles.delta_text,'string','0.3')
 handles.sep_cutoff=0.1;
 
 set(handles.mahal_cutoff,'string','30')
@@ -158,6 +159,14 @@ wellnum=get(handles.well_popup,'value');
 
 thiswell_bin = (handles.bcind==wellnum) & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > handles.sep_cutoff);
 
+% %20140904
+% well_pop=zeros(handles.num_codes,1);
+% for i=1:handles.num_codes
+%     well_pop(i)=nnz(handles.bcind==i & handles.mahal<handles.mahal_cutoff & handles.deltas>handles.sep_cutoff);
+% end
+% figure
+% bar(well_pop)
+% waitfor(gcf)
 
 if ~isempty(wellnum)
     
@@ -615,6 +624,8 @@ if handles.pathname ~= 0
     drawnow
     set(gcf,'pointer','arrow')
     
+%     debarcode_button_Callback(hObject, eventdata, handles)
+    
 else
     return
 end
@@ -671,9 +682,8 @@ end
 
 delete(tb)
 
-%%% 20140520
-
-handles.ax=subplot(4,1,[2 3 4],'parent',handles.ax_panel,'box','off');
+% handles.ax=axes('parent',handles.ax_panel);
+% handles.ax=subplot(4,1,[2 3 4],'parent',handles.ax_panel,'box','off');
 
 num_cells=size(handles.bcs,1);
 set(gca,'colororder',flipud(jet(20)))
@@ -708,7 +718,11 @@ wn={'111000'
 set(handles.lines,'ButtonDownFcn',{@select_line,handles});
 % handles.ax=ax(1);
 
-ax2=subplot(4,1,1,'parent',handles.ax_panel);
+% ax2=subplot(4,1,1,'parent',handles.ax_panel);
+ch=get(handles.yield_panel,'children');
+delete(ch)
+ax2=axes('parent',handles.yield_panel);
+
 [hi,xi]=hist(handles.deltas,100);
 bar(ax2,xi,num_cells/100000*hi)
 set(get(ax2,'XLabel'),'String','Barcode separation','fontsize',12)
@@ -760,7 +774,10 @@ for i=1:handles.num_codes
     if size(bci,1)>handles.num_codes
         handles.mahal(in_bc)=mahal(bci,bci);
     end
+    handles.well_yield(i)=nnz(in_bc & handles.mahal<handles.mahal_cutoff_val);
 end
+
+plot_well_yields(handles)
 
 guidata(handles.parent,handles)
 
@@ -823,6 +840,8 @@ if handles.bcpathname ~= 0
     set(handles.well_popup,'string',handles.wellLabels)
     
     handles.key=x.data(2:end,:);
+    
+    handles.well_yield=zeros(handles.num_codes,1);
     
     guidata(handles.parent,handles)
     
@@ -1138,7 +1157,28 @@ function handles=mahal_cutoff_Callback(hObject, eventdata, handles)
 
 
 handles.mahal_cutoff_val=str2double(get(handles.mahal_cutoff,'string'));
+
+within_cutoffs=handles.mahal<handles.mahal_cutoff_val & handles.deltas>handles.sep_cutoff;
+for i=1:handles.num_codes
+    handles.well_yield(i)=nnz(handles.bcind==i & within_cutoffs);
+end
+
+plot_well_yields(handles)
+
 guidata(handles.parent,handles)
+
+function plot_well_yields(handles)
+
+ch=get(handles.yield_panel,'children');
+delete(ch)
+yield_axis=axes('parent',handles.yield_panel);
+bar(yield_axis,handles.well_yield,'facecolor',[0.4 0.4 0.4])
+ylabel('Cell count')
+set(yield_axis,'xlim',[0 handles.num_codes+1],...
+    'xtick',1:handles.num_codes,...
+    'xticklabel',handles.wellLabels)
+
+
 
 % --- Executes during object creation, after setting all properties.
 function mahal_cutoff_CreateFcn(hObject, eventdata, handles)
