@@ -631,7 +631,7 @@ end
 
 
 % --- Executes on button press in debarcode_button.
-function debarcode_button_Callback(hObject, eventdata, handles)
+function handles=debarcode_button_Callback(hObject, eventdata, handles)
 % hObject    handle to debarcode_button (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
@@ -719,13 +719,13 @@ set(handles.lines,'ButtonDownFcn',{@select_line,handles});
 % ax2=subplot(4,1,1,'parent',handles.ax_panel);
 ch=get(handles.yield_panel,'children');
 delete(ch)
-ax2=axes('parent',handles.yield_panel);
+yield_axis=axes('parent',handles.yield_panel);
 
 [hi,xi]=hist(handles.deltas,100);
-bar(ax2,xi,num_cells/100000*hi)
-set(get(ax2,'XLabel'),'String','Barcode separation','fontsize',12)
-set(get(ax2,'YLabel'),'String','Event count','fontsize',12)
-set(ax2,'xlim',[0 1],'box','off')
+bar(yield_axis,xi,num_cells/100000*hi)
+set(get(yield_axis,'XLabel'),'String','Barcode separation','fontsize',12)
+set(get(yield_axis,'YLabel'),'String','Event count','fontsize',12)
+set(yield_axis,'xlim',[0 1],'box','off')
 shading flat
 colormap([0 0.5 0.4])
 
@@ -733,7 +733,6 @@ drawnow
 set(gcf,'pointer','arrow')
 drawnow
 
-guidata(hObject,handles)
 
 
 function select_line(button,eventdata,handles)
@@ -936,7 +935,7 @@ handles.cofactors=neg_cofactor;
 handles.normbcs=normalize_bcs(cofactored_bcs,norm_vals,handles);
 %% end 20140904
 
-debarcode_button_Callback(hObject, eventdata, handles)
+handles=debarcode_button_Callback(hObject, eventdata, handles);
 
 set(handles.x_popup,'value',1)
 set(handles.y_popup,'value',1)
