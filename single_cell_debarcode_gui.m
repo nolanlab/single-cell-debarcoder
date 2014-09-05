@@ -617,14 +617,12 @@ if handles.pathname ~= 0
     
     guidata(handles.parent,handles)
     
-    load_bc_data(handles)
+    load_bc_data(hObject, eventdata,handles)
     
-    ch=get(handles.ax_panel,'children');
-    delete(ch)
-    drawnow
-    set(gcf,'pointer','arrow')
-    
-%     debarcode_button_Callback(hObject, eventdata, handles)
+%     ch=get(handles.ax_panel,'children');
+%     delete(ch)
+%     drawnow
+%     set(gcf,'pointer','arrow')
     
 else
     return
@@ -847,14 +845,14 @@ if handles.bcpathname ~= 0
     
     %if fcs file already loaded, update which are the bc cols and the bc data i
     if isfield(handles,'c')
-        load_bc_data(handles)
+        load_bc_data(hObject, eventdata,handles)
     end
     
 else
     return
 end
 
-function load_bc_data(handles)
+function load_bc_data(hObject, eventdata, handles)
 
 try
     handles.bc_cols=find_bc_cols_by_mass(handles.c,handles.masses);
@@ -938,6 +936,7 @@ handles.cofactors=neg_cofactor;
 handles.normbcs=normalize_bcs(cofactored_bcs,norm_vals,handles);
 %% end 20140904
 
+debarcode_button_Callback(hObject, eventdata, handles)
 
 set(handles.x_popup,'value',1)
 set(handles.y_popup,'value',1)
