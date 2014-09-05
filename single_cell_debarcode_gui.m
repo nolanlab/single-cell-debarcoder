@@ -150,8 +150,7 @@ switch get(selectedobj,'string')
         set(handles.pop_fwd,'visible','off')
         set(handles.pop_back,'visible','off')
         set(handles.biax_panel,'visible','off')
-        set(handles.color_panel,'visible','off')
-        debarcode_button_Callback(hObject,eventdata,handles);
+        set(handles.color_panel,'visible','off')        
     case 'Event'
 %         set(handles.sample_panel,'visible','on')
         set(handles.well_popup,'visible','on')
@@ -160,7 +159,6 @@ switch get(selectedobj,'string')
         set(handles.biax_panel,'visible','off')
         set(handles.color_panel,'visible','off')
         plot_well_yields(handles)
-        plot_button_Callback(hObject, eventdata, handles)
     case 'Single Biaxial'
 %         set(handles.sample_panel,'visible','on')
         set(handles.well_popup,'visible','on')
@@ -169,7 +167,6 @@ switch get(selectedobj,'string')
         set(handles.biax_panel,'visible','on')
         set(handles.color_panel,'visible','on')
         plot_well_yields(handles)
-        plot_button_Callback(hObject, eventdata, handles)
     case 'All Barcode Biaxials'
 %         set(handles.sample_panel,'visible','on')
         set(handles.well_popup,'visible','on')
@@ -178,8 +175,8 @@ switch get(selectedobj,'string')
         set(handles.biax_panel,'visible','off')
         set(handles.color_panel,'visible','on')
         plot_well_yields(handles)
-        plot_button_Callback(hObject, eventdata, handles)
 end
+plot_button_Callback(hObject, eventdata, handles)
 
 % --- Executes on button press in plot_button.
 function plot_button_Callback(hObject, eventdata, handles)
@@ -208,7 +205,8 @@ if ~isempty(wellnum)
     drawnow;
     switch get(selectedobj,'string')
         case 'Separation'
-            debarcode_button_Callback(hObject,eventdata,handles);
+            separation_plot(handles);
+%             debarcode_button_Callback(hObject,eventdata,handles);
         case 'Event'
             
             oldax=get(handles.ax_panel,'children');
@@ -247,7 +245,7 @@ if ~isempty(wellnum)
                 s=1:size(thiswell,1);
                 plot3(s,thiswell,rand(size(s)),'.');
                 
-                set(get(ax(2),'Ylabel'),'String','normalized values','fontsize',12)
+                set(get(ax(2),'Ylabel'),'String','Rescaled values','fontsize',12)
                 
                 legend(handles.leg,'location','northeastoutside')
             end
@@ -688,12 +686,10 @@ if ~isfield(handles,'bcs')
     return
 end
 
-ch=get(handles.ax_panel,'children');
-delete(ch)
-handles.ax=axes('parent',handles.ax_panel);
-set(handles.parent,'currentaxes',handles.ax)
-set(handles.ax,'visible','off')
-tb=text(0.5,0.5,'Debarcoding ...','horizontalalignment','center','verticalalignment','middle','fontsize',14);
+
+% set(handles.parent,'currentaxes',handles.ax)
+% set(handles.ax,'visible','off')
+% tb=text(0.5,0.5,'Debarcoding ...','horizontalalignment','center','verticalalignment','middle','fontsize',14);
 
 set(handles.parent,'pointer','watch')
 drawnow
@@ -702,7 +698,8 @@ drawnow
 handles=compute_debarcoding(handles);
 
 % compute mahalanobis distances
-handles=delta_text_Callback(hObject, eventdata, handles);
+% handles.sep_cutoff=str2double(get(handles.delta_text,'string'));
+handles=compute_mahal(handles);
 
 %%% plot well abundances
 
@@ -712,70 +709,48 @@ minsep=0;
 maxsep=1;
 handles.seprange=linspace(minsep,maxsep,numseps);
 
-clust_size=zeros(numseps,handles.num_codes);
+handles.clust_size=zeros(numseps,handles.num_codes);
 
 for i=1:numseps
     for j=1:length(handles.wellLabels)
-        clust_size(i,j) = nnz(handles.bcind==j & (handles.deltas > handles.seprange(i)));
+        handles.clust_size(i,j) = nnz(handles.bcind==j & (handles.deltas > handles.seprange(i)));
     end
 end
 
-delete(tb)
+% delete(tb)
 
 set(handles.plottype,'SelectedObject',handles.separation_plot)
 
 % handles.ax=axes('parent',handles.ax_panel);
 % handles.ax=subplot(4,1,[2 3 4],'parent',handles.ax_panel,'box','off');
 
-num_cells=size(handles.bcs,1);
-set(gca,'colororder',flipud(jet(20)))
-hold on
-handles.lines=plot(handles.ax,handles.seprange,handles.sample_ratio*clust_size);
-set(get(handles.ax,'XLabel'),'String','Barcode separation','fontsize',12)
-set(get(handles.ax,'YLabel'),'String','Event yield after debarcoding','fontsize',12)
-% set(gca,'ylim',[0 8000])
-wn={'111000'
-    '110100'
-    '110010'
-    '110001'
-    '101100'
-    '101010'
-    '101001'
-    '100110'
-    '100101'
-    '100011'
-    '011100'
-    '011010'
-    '011001'
-    '010110'
-    '010101'
-    '010011'
-    '001110'
-    '001101'
-    '001011'
-    '000111'};
-% legend(wn)
-% ylabel('Number of cells','fontsize',12)
+handles=separation_plot(handles);
 
-set(handles.lines,'ButtonDownFcn',{@select_line,handles});
-% handles.ax=ax(1);
+drawnow
+set(handles.parent,'pointer','arrow')
+drawnow
 
-% ax2=subplot(4,1,1,'parent',handles.ax_panel);
+function handles=separation_plot(handles)
+
 ch=get(handles.yield_panel,'children');
 delete(ch)
 yield_axis=axes('parent',handles.yield_panel);
-
 [hi,xi]=hist(handles.deltas,100);
 bar(yield_axis,xi,handles.sample_ratio*hi,'facecolor',[0 0.5 0.4])
 set(get(yield_axis,'XLabel'),'String','Barcode separation','fontsize',12)
 set(get(yield_axis,'YLabel'),'String','Event count','fontsize',12)
 set(yield_axis,'xlim',[0 1],'box','off')
-% shading flat
-% colormap([0 0.5 0.4])
 
-drawnow
-set(handles.parent,'pointer','arrow')
-drawnow
+ch=get(handles.ax_panel,'children');
+delete(ch)
+handles.ax=axes('parent',handles.ax_panel);
+set(handles.ax,'colororder',flipud(jet(20)))
+hold on
+handles.lines=plot(handles.ax,handles.seprange,handles.sample_ratio*handles.clust_size);
+set(get(handles.ax,'XLabel'),'String','Barcode separation','fontsize',12)
+set(get(handles.ax,'YLabel'),'String','Event yield after debarcoding','fontsize',12)
+set(handles.lines,'ButtonDownFcn',{@select_line,handles});
+
 
 
 
@@ -791,7 +766,18 @@ ind=handles.lines==gco;
 cp=get(handles.ax,'currentpoint');
 text(cp(1,1),cp(1,2),handles.wellLabels{ind},'fontsize',12,'verticalalignment','baseline','edgecolor','k','backgroundcolor','w','interpreter','none')
 
+function handles=compute_mahal(handles)
 
+handles.mahal=zeros(size(handles.deltas));
+% num_codes=length(handles.wellLabels);
+for i=1:handles.num_codes
+    in_bc=(handles.bcind==i) & (handles.deltas > handles.sep_cutoff);
+    bci=handles.bcs(in_bc,:);
+    if size(bci,1)>handles.num_codes
+        handles.mahal(in_bc)=mahal(bci,bci);
+    end
+    handles.well_yield(i)=handles.sample_ratio*nnz(in_bc & handles.mahal<handles.mahal_cutoff_val);
+end
 
 function handles=delta_text_Callback(hObject, eventdata, handles)
 % hObject    handle to delta_text (see GCBO)
@@ -805,20 +791,15 @@ function handles=delta_text_Callback(hObject, eventdata, handles)
 
 handles.sep_cutoff=str2double(get(handles.delta_text,'string'));
 
-% re-compute mahalanobis distances
+% compute mahalanobis distances
 
-handles.mahal=zeros(size(handles.deltas));
-% num_codes=length(handles.wellLabels);
-for i=1:handles.num_codes
-    in_bc=(handles.bcind==i) & (handles.deltas > handles.sep_cutoff);
-    bci=handles.bcs(in_bc,:);
-    if size(bci,1)>handles.num_codes
-        handles.mahal(in_bc)=mahal(bci,bci);
-    end
-    handles.well_yield(i)=handles.sample_ratio*nnz(in_bc & handles.mahal<handles.mahal_cutoff_val);
+handles=compute_mahal(handles);
+
+selectedobj=get(handles.plottype,'SelectedObject');
+if ~strcmp(get(selectedobj,'string'),'Separation')
+    plot_well_yields(handles)
+    plot_button_Callback(hObject, eventdata, handles)
 end
-
-plot_well_yields(handles)
 
 guidata(handles.parent,handles)
 
@@ -1217,7 +1198,11 @@ for i=1:handles.num_codes
     handles.well_yield(i)=nnz(handles.bcind==i & within_cutoffs);
 end
 
-plot_well_yields(handles)
+selectedobj=get(handles.plottype,'SelectedObject');
+if ~strcmp(get(selectedobj,'string'),'Separation')
+    plot_well_yields(handles)
+    plot_button_Callback(hObject, eventdata, handles)
+end
 
 guidata(handles.parent,handles)
 
@@ -1226,7 +1211,7 @@ function plot_well_yields(handles)
 ch=get(handles.yield_panel,'children');
 delete(ch)
 yield_axis=subplot(5,1,[2 3 4],'parent',handles.yield_panel);
-bar(yield_axis,handles.well_yield,'facecolor',[0.4 0.4 0.4])
+bar(yield_axis,handles.well_yield,'facecolor',[0 0.5 0.4])
 ylabel('Cell count')
 set(yield_axis,'xlim',[0 handles.num_codes+1],'xtick',[])
 % ,...
@@ -1234,7 +1219,7 @@ set(yield_axis,'xlim',[0 handles.num_codes+1],'xtick',[])
 %     'xticklabel',handles.wellLabels)
 yl=get(yield_axis,'ylim');
 text(1:handles.num_codes,-yl(2)/15*ones(1,handles.num_codes),handles.wellLabels,'rotation',315)
-title(yield_axis,'Barcode Yields With Current Filtering Parameters','fontsize',12)
+title(yield_axis,'Barcode Yields with Current Filters','fontsize',12)
 
 
 
