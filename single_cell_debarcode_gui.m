@@ -230,8 +230,9 @@ if ~isempty(wellnum)
                 set(ax(1),'ytick',handles.default_xt,'yticklabel',handles.xtl)
                 set(get(ax(1),'Ylabel'),'String','untransformed values','fontsize',12)
                 set(get(ax(1),'Ylabel'),'String','Barcode intensities','fontsize',12)
-                
+                xlabel('Event','fontsize',12)
                 legend(handles.leg,'location','northeastoutside')
+                
             end
             title(num2str(handles.key(wellnum,:)),'fontweight','bold','fontsize',12);
             
@@ -244,15 +245,16 @@ if ~isempty(wellnum)
             if ~isempty(thiswell)
                 s=1:size(thiswell,1);
                 plot3(s,thiswell,rand(size(s)),'.');
-                
+                set(ax(2),'xtick',[])
                 set(get(ax(2),'Ylabel'),'String','Rescaled values','fontsize',12)
-                
+                xlabel('Event','fontsize',12)
                 legend(handles.leg,'location','northeastoutside')
             end
             
             hlink=linkprop(ax,'xLim');
             key = 'graphics_linkprop';
             setappdata(ax(1),key,hlink);
+            
             
         case 'Single Biaxial'
             oldax=get(handles.ax_panel,'children');
@@ -593,6 +595,13 @@ percs=prctile(raw_bcs,[1 99]);
 ranges=diff(percs);
 deltas=bsxfun(@minus,raw_bcs,percs(1,:));
 normed_bcs=bsxfun(@rdivide,deltas,ranges);
+
+% maxs=max(raw_bcs,[],2);
+% mins=min(raw_bcs,[],2);
+% diffs=maxs-mins;
+% deltas=bsxfun(@minus,raw_bcs,mins);
+% normed_bcs=bsxfun(@rdivide,deltas,diffs);
+
 % else
 %    if ~isfield(handles,'bcind')
 %        error('bcind must be computed before custom normalization')
@@ -740,6 +749,7 @@ bar(yield_axis,xi,handles.sample_ratio*hi,'facecolor',[0 0.5 0.4])
 set(get(yield_axis,'XLabel'),'String','Barcode separation','fontsize',12)
 set(get(yield_axis,'YLabel'),'String','Event count','fontsize',12)
 set(yield_axis,'xlim',[0 1],'box','off')
+% set(yield_axis,'fontsize',12)
 
 ch=get(handles.ax_panel,'children');
 delete(ch)
@@ -747,9 +757,32 @@ handles.ax=axes('parent',handles.ax_panel);
 set(handles.ax,'colororder',flipud(jet(20)))
 hold on
 handles.lines=plot(handles.ax,handles.seprange,handles.sample_ratio*handles.clust_size);
-set(get(handles.ax,'XLabel'),'String','Barcode separation','fontsize',12)
+set(get(handles.ax,'XLabel'),'String','Barcode separation threshold','fontsize',12)
 set(get(handles.ax,'YLabel'),'String','Event yield after debarcoding','fontsize',12)
 set(handles.lines,'ButtonDownFcn',{@select_line,handles});
+
+% set(gca,'ylim',[0 80000],'fontsize',12)
+% wn={'111000'
+%     '110100'
+%     '110010'
+%     '110001'
+%     '101100'
+%     '101010'
+%     '101001'
+%     '100110'
+%     '100101'
+%     '100011'
+%     '011100'
+%     '011010'
+%     '011001'
+%     '010110'
+%     '010101'
+%     '010011'
+%     '001110'
+%     '001101'
+%     '001011'
+%     '000111'};
+% legend(wn)
 
 
 function select_line(button,eventdata,handles)
@@ -991,6 +1024,8 @@ for i=1:length(handles.masses)
     end
 end
 
+handles=compute_mahal(handles);
+
 % guidata(handles.parent,handles)
 
 
@@ -1212,12 +1247,11 @@ yield_axis=subplot(5,1,[2 3 4],'parent',handles.yield_panel);
 bar(yield_axis,handles.well_yield,'facecolor',[0 0.5 0.4])
 ylabel('Cell count')
 set(yield_axis,'xlim',[0 handles.num_codes+1],'xtick',[])
-% ,...
-%     'xtick',1:handles.num_codes,...
-%     'xticklabel',handles.wellLabels)
 yl=get(yield_axis,'ylim');
 text(1:handles.num_codes,-yl(2)/15*ones(1,handles.num_codes),handles.wellLabels,'rotation',315)
-title(yield_axis,'Barcode Yields with Current Filters','fontsize',12)
+
+total_yield=round(100*sum(handles.well_yield)/size(handles.x,1));
+title(yield_axis,['Barcode Yields with Current Filters: ' num2str(total_yield) '% assigned'],'fontsize',12)
 
 
 
