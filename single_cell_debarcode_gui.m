@@ -85,7 +85,7 @@ set(handles.plot_button,'visible','off')
 %  initialize parameters
 
 set(handles.delta_text,'string','0.3')
-handles.sep_cutoff=0.1;
+handles.sep_cutoff=0.3;
 
 set(handles.mahal_cutoff,'string','30')
 handles.mahal_cutoff_val=30;
@@ -187,7 +187,6 @@ function plot_button_Callback(hObject, eventdata, handles)
 selectedobj = get(handles.plottype,'SelectedObject');
 
 wellnum=get(handles.well_popup,'value');
-
 thiswell_bin = (handles.bcind==wellnum) & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > handles.sep_cutoff);
 
 % %20140904
