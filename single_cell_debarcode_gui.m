@@ -90,9 +90,6 @@ handles.sep_cutoff=0.3;
 set(handles.mahal_cutoff,'string','30')
 handles.mahal_cutoff_val=30;
 
-% set(handles.cutoff_text,'string','0')
-
-% set(handles.cofactor,'string',5);
 handles.default_cofactor=5;
 
 axticks=load('axticks.mat');
@@ -145,14 +142,12 @@ selectedobj = get(handles.plottype,'SelectedObject');
 handles=guidata(handles.parent);
 switch get(selectedobj,'string')
     case 'Separation'
-%         set(handles.sample_panel,'visible','off')
         set(handles.well_popup,'visible','off')
         set(handles.pop_fwd,'visible','off')
         set(handles.pop_back,'visible','off')
         set(handles.biax_panel,'visible','off')
         set(handles.color_panel,'visible','off')        
     case 'Event'
-%         set(handles.sample_panel,'visible','on')
         set(handles.well_popup,'visible','on')
         set(handles.pop_fwd,'visible','on')
         set(handles.pop_back,'visible','on')
@@ -160,7 +155,6 @@ switch get(selectedobj,'string')
         set(handles.color_panel,'visible','off')
         plot_well_yields(handles)
     case 'Single Biaxial'
-%         set(handles.sample_panel,'visible','on')
         set(handles.well_popup,'visible','on')
         set(handles.pop_fwd,'visible','on')
         set(handles.pop_back,'visible','on')
@@ -168,7 +162,6 @@ switch get(selectedobj,'string')
         set(handles.color_panel,'visible','on')
         plot_well_yields(handles)
     case 'All Barcode Biaxials'
-%         set(handles.sample_panel,'visible','on')
         set(handles.well_popup,'visible','on')
         set(handles.pop_fwd,'visible','on')
         set(handles.pop_back,'visible','on')
@@ -189,15 +182,6 @@ selectedobj = get(handles.plottype,'SelectedObject');
 wellnum=get(handles.well_popup,'value');
 thiswell_bin = (handles.bcind==wellnum) & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > handles.sep_cutoff);
 
-% %20140904
-% well_pop=zeros(handles.num_codes,1);
-% for i=1:handles.num_codes
-%     well_pop(i)=nnz(handles.bcind==i & handles.mahal<handles.mahal_cutoff & handles.deltas>handles.sep_cutoff);
-% end
-% figure
-% bar(well_pop)
-% waitfor(gcf)
-
 if ~isempty(wellnum)
     
     set(handles.parent,'pointer','watch')
@@ -205,7 +189,6 @@ if ~isempty(wellnum)
     switch get(selectedobj,'string')
         case 'Separation'
             separation_plot(handles);
-%             debarcode_button_Callback(hObject,eventdata,handles);
         case 'Event'
             
             oldax=get(handles.ax_panel,'children');
@@ -218,14 +201,10 @@ if ~isempty(wellnum)
             thiswell=handles.bcs(thiswell_bin,:);
             if ~isempty(thiswell)
                 s=1:size(thiswell,1);
-                %[ax,h1,h2]=plotyy(s,thiswell,s,thiswell);
                 plot3(s,thiswell,rand(size(s))-1,'.')
                 hold on
                 
                 set(ax(1),'Box','off','xtick',[],'Layer','top')
-                %                 set(h2,'visible','off')
-                %                 set(h1,'marker','.','linestyle','none')
-                %
                 set(ax(1),'ytick',handles.default_xt,'yticklabel',handles.xtl)
                 set(get(ax(1),'Ylabel'),'String','untransformed values','fontsize',12)
                 set(get(ax(1),'Ylabel'),'String','Barcode intensities','fontsize',12)
@@ -264,11 +243,7 @@ if ~isempty(wellnum)
             cm=jet(64);
             hold on
             
-            thiswell=handles.bcs(thiswell_bin,[xcol ycol]);
-            
-            %20140904
             thiswell=handles.cofactored_bcs(thiswell_bin,[xcol ycol]);
-            %
             
             mdists=handles.mahal(thiswell_bin);
             
@@ -295,15 +270,9 @@ if ~isempty(wellnum)
                 
             end
             
-            set(gca,'xlim',handles.default_xl,'ylim',handles.default_xl,...
-                'xtick',handles.default_xt,'xticklabel',handles.xtl,...
-                'ytick',handles.default_xt,'yticklabel',handles.xtl)
-            
-            %20140904
             set(gca,'xlim',handles.cofactored_xl(:,xcol),'ylim',handles.cofactored_xl(:,ycol),...
                 'xtick',handles.cofactored_xt(:,xcol),'xticklabel',handles.xtl,...
                 'ytick',handles.cofactored_xt(:,ycol),'yticklabel',handles.xtl)
-            %
             
             title(num2str(handles.key(wellnum,:)),'fontweight','bold','fontsize',12);
             
@@ -325,11 +294,9 @@ if ~isempty(wellnum)
                     elseif j<=i && i<n
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
                         hold on
-                        
-                        thiswell=handles.bcs(thiswell_bin,[j i+1]);
-                        %20140904
+
                         thiswell=handles.cofactored_bcs(thiswell_bin,[j i+1]);
-                        %
+
                         mdists=handles.mahal(thiswell_bin);
                         seps=handles.deltas(thiswell_bin);
                         
@@ -337,22 +304,17 @@ if ~isempty(wellnum)
                             if get(handles.color_panel,'SelectedObject') == handles.color_mahal
                                 scatter(thiswell(:,1),thiswell(:,2),2,mdists)
                                 set(gca,'clim',[0 handles.mahal_cutoff_val])
-%                                 colormap(jet)
                             else
                                 scatter(thiswell(:,1),thiswell(:,2),2,seps)
                                 set(gca,'clim',[handles.sep_cutoff 1])
-%                                 colormap(flipud(cm))
                             end
                         end
                         
                         set(ax,'xlim',handles.cofactored_xl(:,j),'ylim',handles.cofactored_xl(:,i+1),'xtick',[],'ytick',[])
-                    elseif j>0 && i==j-1 %&& any([i j])
+                    elseif j>0 && i==j-1 
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
                         if nnz(handles.bcind==wellnum) ~= 0
-                            [binsize,binloc]=hist(handles.bcs(thiswell_bin,j),100);
-                            %20140904
                             [binsize,binloc]=hist(handles.cofactored_bcs(thiswell_bin,j),100);
-                            %
                             bar(binloc,binsize,'edgecolor','none','facecolor',[0 0.5 0])
                         end
                         set(ax,'xlim',handles.cofactored_xl(:,j),'xtick',[],'ytick',[])
@@ -520,13 +482,6 @@ if PathName ~= 0
     set(handles.parent,'pointer','watch')
     drawnow
     
-%     fid=fopen([PathName filesep FileName '_BarCodeList.txt'],'w');  %this is to record the barcode labels for use later with spade
-    
-%     wellNumbers=zeros(size(handles.x,1),1); %%%
-%     m=[handles.m 'barcode']; %add barcode column
-%     c=[handles.c 'barcode'];
-%     n=length(c);
-    
     % need to recompute handles.bcind using all (not just sampled) cells
     
     handles.bcs=zeros(size(handles.x,1),handles.num_masses);
@@ -539,36 +494,27 @@ if PathName ~= 0
     handles=compute_debarcoding(handles);
     
     % compute mahalanobis distances
-%     handles=delta_text_Callback(hObject, eventdata, handles);
     handles=compute_mahal(handles);
         
     not_inawell=true(size(handles.bcind));
     
     for i=1:length(handles.wellLabels)
-        
-%         fprintf(fid,'%s\n',handles.wellLabels{i});  %printing out one line of _BarCodeList.txt
-        
+           
         thiswell_bin = (handles.bcind==i) & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > sep_cutoff);
         
         not_inawell(thiswell_bin)=false; %cells in this well removed from unassigned_binary
         
-%         data=zeros(sum(thiswell_bin),n);
         data=handles.x(thiswell_bin,:);
         if ~isempty(data)
             fca_writefcs([PathName filesep FileName '_' handles.wellLabels{i} '.fcs'],data,handles.m,handles.c)
             wellNumbers(thiswell_bin)=i; %%%
         end
     end
-    
-%     fclose(fid);
-    
-%     data=zeros(sum(not_inawell),n);
+
     data=handles.x(not_inawell,:);
     
     fca_writefcs([PathName filesep FileName '_unassigned.fcs'],data,handles.m,handles.c)
-    %     fca_writefcs([PathName filesep FileName '_BClabeled.fcs'],[handles.x wellNumbers],[handles.m 'barcode'],[handles.c 'barcode']) %%%
-    %     dlmwrite([PathName filesep FileName '_wellNumbers.txt'],wellNumbers,'delimiter','\n')
-    
+
     fid=fopen([PathName filesep 'Debarcode_Parameters.txt'],'w');
     fprintf(fid,'%s\n',datestr(now));
     fprintf(fid,'%s\n','Input files:');
@@ -589,35 +535,11 @@ end
 
 function normed_bcs = normalize_bcs(raw_bcs)
 
-% if nargin==1
 percs=prctile(raw_bcs,[1 99]);
 ranges=diff(percs);
 deltas=bsxfun(@minus,raw_bcs,percs(1,:));
 normed_bcs=bsxfun(@rdivide,deltas,ranges);
 
-% maxs=max(raw_bcs,[],2);
-% mins=min(raw_bcs,[],2);
-% diffs=maxs-mins;
-% deltas=bsxfun(@minus,raw_bcs,mins);
-% normed_bcs=bsxfun(@rdivide,deltas,diffs);
-
-% else
-%    if ~isfield(handles,'bcind')
-%        error('bcind must be computed before custom normalization')
-%    end
-%    normed_bcs=zeros(size(raw_bcs));
-%    for i=1:handles.num_codes
-%        bci=handles.bcind==i;
-%        normed_bcs(bci,handles.key(i,:)==0)=raw_bcs(bci,handles.key(i,:)==0);
-%        normed_bcs(bci,handles.key(i,:)==1)=bsxfun(@rdivide,raw_bcs(bci,handles.key(i,:)==1),norm_vals(i,handles.key(i,:)==1));
-%    end
-% end
-
-%temp
-% percs=prctile(raw_bcs(:),[1 99]);
-% ranges=diff(percs);  %difference between 99th and 1st percentile of bc channels
-% deltas=raw_bcs - percs(1);
-% normed_bcs=deltas./ranges;  %could still collect on edges (0,1)
 
 
 % --- Executes on button press in folder_button.
@@ -667,11 +589,6 @@ if handles.pathname ~= 0
     
     guidata(hObject,handles)
     
-%     ch=get(handles.ax_panel,'children');
-%     delete(ch)
-%     drawnow
-%     set(gcf,'pointer','arrow')
-    
 else
     return
 end
@@ -694,11 +611,6 @@ if ~isfield(handles,'bcs')
     return
 end
 
-
-% set(handles.parent,'currentaxes',handles.ax)
-% set(handles.ax,'visible','off')
-% tb=text(0.5,0.5,'Debarcoding ...','horizontalalignment','center','verticalalignment','middle','fontsize',14);
-
 set(handles.parent,'pointer','watch')
 drawnow
 
@@ -706,14 +618,12 @@ drawnow
 handles=compute_debarcoding(handles);
 
 % compute mahalanobis distances
-% handles.sep_cutoff=str2double(get(handles.delta_text,'string'));
 handles=compute_mahal(handles);
 
-%%% plot well abundances
+% plot well abundances
 
 numseps=20;
 minsep=0;
-% maxsep=0.5;
 maxsep=1;
 handles.seprange=linspace(minsep,maxsep,numseps);
 
@@ -725,12 +635,7 @@ for i=1:numseps
     end
 end
 
-% delete(tb)
-
 set(handles.plottype,'SelectedObject',handles.separation_plot)
-
-% handles.ax=axes('parent',handles.ax_panel);
-% handles.ax=subplot(4,1,[2 3 4],'parent',handles.ax_panel,'box','off');
 
 handles=separation_plot(handles);
 
@@ -748,7 +653,6 @@ bar(yield_axis,xi,handles.sample_ratio*hi,'facecolor',[0 0.5 0.4])
 set(get(yield_axis,'XLabel'),'String','Barcode separation','fontsize',12)
 set(get(yield_axis,'YLabel'),'String','Event count','fontsize',12)
 set(yield_axis,'xlim',[0 1],'box','off')
-% set(yield_axis,'fontsize',12)
 
 ch=get(handles.ax_panel,'children');
 delete(ch)
@@ -759,29 +663,6 @@ handles.lines=plot(handles.ax,handles.seprange,handles.sample_ratio*handles.clus
 set(get(handles.ax,'XLabel'),'String','Barcode separation threshold','fontsize',12)
 set(get(handles.ax,'YLabel'),'String','Event yield after debarcoding','fontsize',12)
 set(handles.lines,'ButtonDownFcn',{@select_line,handles});
-
-% set(gca,'ylim',[0 80000],'fontsize',12)
-% wn={'111000'
-%     '110100'
-%     '110010'
-%     '110001'
-%     '101100'
-%     '101010'
-%     '101001'
-%     '100110'
-%     '100101'
-%     '100011'
-%     '011100'
-%     '011010'
-%     '011001'
-%     '010110'
-%     '010101'
-%     '010011'
-%     '001110'
-%     '001101'
-%     '001011'
-%     '000111'};
-% legend(wn)
 
 
 function select_line(button,eventdata,handles)
@@ -799,7 +680,6 @@ text(cp(1,1),cp(1,2),handles.wellLabels{ind},'fontsize',12,'verticalalignment','
 function handles=compute_mahal(handles)
 
 handles.mahal=zeros(size(handles.deltas));
-% num_codes=length(handles.wellLabels);
 for i=1:handles.num_codes
     in_bc=(handles.bcind==i) & (handles.deltas > handles.sep_cutoff);
     bci=handles.bcs(in_bc,:);
@@ -894,7 +774,7 @@ if handles.bcpathname ~= 0
     handles.key=x.data(2:end,:);
     
     handles.well_yield=zeros(handles.num_codes,1);
-    
+   
     
     %if fcs file already loaded, update which are the bc cols and the bc data i
     if isfield(handles,'c')
@@ -936,7 +816,7 @@ end
 
 handles.normbcs=normalize_bcs(handles.bcs);
 
-%% 20140904 -- can comment this section to recreate old behavior
+%% 20140904 -- main cofactor update
 handles=compute_debarcoding(handles);
 
 temp_bcind=handles.bcind;
@@ -998,7 +878,7 @@ handles.cofactored_bcs=cofactored_bcs;
 
 %
 handles.normbcs=normalize_bcs(cofactored_bcs);
-%% end 20140904
+%% end 
 
 handles=debarcode_button_Callback(hObject, eventdata, handles);
 
@@ -1024,9 +904,6 @@ for i=1:length(handles.masses)
 end
 
 handles=compute_mahal(handles);
-
-% guidata(handles.parent,handles)
-
 
 
 function save_text_Callback(hObject, eventdata, handles)
