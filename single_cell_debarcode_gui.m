@@ -57,6 +57,7 @@ handles.output = hObject;
 
 % setup default initial view
 
+%default color order
 co=[     0    0.5000    0.4000
     0.7500         0    0.7500
     1.0000    0.8000         0
@@ -189,15 +190,6 @@ selectedobj = get(handles.plottype,'SelectedObject');
 wellnum=get(handles.well_popup,'value');
 thiswell_bin = (handles.bcind==wellnum) & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > handles.sep_cutoff);
 
-% %20140904
-% well_pop=zeros(handles.num_codes,1);
-% for i=1:handles.num_codes
-%     well_pop(i)=nnz(handles.bcind==i & handles.mahal<handles.mahal_cutoff & handles.deltas>handles.sep_cutoff);
-% end
-% figure
-% bar(well_pop)
-% waitfor(gcf)
-
 if ~isempty(wellnum)
     
     set(handles.parent,'pointer','watch')
@@ -266,9 +258,6 @@ if ~isempty(wellnum)
             
             thiswell=handles.bcs(thiswell_bin,[xcol ycol]);
             
-            %20140904
-            thiswell=handles.cofactored_bcs(thiswell_bin,[xcol ycol]);
-            %
             
             mdists=handles.mahal(thiswell_bin);
             
@@ -299,12 +288,6 @@ if ~isempty(wellnum)
                 'xtick',handles.default_xt,'xticklabel',handles.xtl,...
                 'ytick',handles.default_xt,'yticklabel',handles.xtl)
             
-            %20140904
-            set(gca,'xlim',handles.cofactored_xl(:,xcol),'ylim',handles.cofactored_xl(:,ycol),...
-                'xtick',handles.cofactored_xt(:,xcol),'xticklabel',handles.xtl,...
-                'ytick',handles.cofactored_xt(:,ycol),'yticklabel',handles.xtl)
-            %
-            
             title(num2str(handles.key(wellnum,:)),'fontweight','bold','fontsize',12);
             
         case 'All Barcode Biaxials'
@@ -327,9 +310,7 @@ if ~isempty(wellnum)
                         hold on
                         
                         thiswell=handles.bcs(thiswell_bin,[j i+1]);
-                        %20140904
-                        thiswell=handles.cofactored_bcs(thiswell_bin,[j i+1]);
-                        %
+
                         mdists=handles.mahal(thiswell_bin);
                         seps=handles.deltas(thiswell_bin);
                         
@@ -345,17 +326,14 @@ if ~isempty(wellnum)
                             end
                         end
                         
-                        set(ax,'xlim',handles.cofactored_xl(:,j),'ylim',handles.cofactored_xl(:,i+1),'xtick',[],'ytick',[])
+                        set(ax,'xlim',handles.default_xl,'ylim',handles.default_xl,'xtick',[],'ytick',[])
                     elseif j>0 && i==j-1 %&& any([i j])
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
                         if nnz(handles.bcind==wellnum) ~= 0
                             [binsize,binloc]=hist(handles.bcs(thiswell_bin,j),100);
-                            %20140904
-                            [binsize,binloc]=hist(handles.cofactored_bcs(thiswell_bin,j),100);
-                            %
                             bar(binloc,binsize,'edgecolor','none','facecolor',[0 0.5 0])
                         end
-                        set(ax,'xlim',handles.cofactored_xl(:,j),'xtick',[],'ytick',[])
+                        set(ax,'xlim',handles.default_xl,'xtick',[],'ytick',[])
                     elseif i==n && j>0
                         ax=subplot(n+1,n+1,Ind,'Parent',handles.ax_panel);
                         set(ax,'visible','off')
@@ -531,7 +509,7 @@ if PathName ~= 0
     
     handles.bcs=zeros(size(handles.x,1),handles.num_masses);
     for i=1:handles.num_masses
-    handles.bcs(:,i)=bmtrans(handles.x(:,handles.bc_cols(i)),handles.cofactors(i)); %switching sampled bcs to full bcs
+    handles.bcs(:,i)=bmtrans(handles.x(:,handles.bc_cols(i)),handles.default_cofactor); %switching sampled bcs to full bcs
     end
     
     handles.normbcs=normalize_bcs(handles.bcs);
@@ -935,70 +913,6 @@ else
 end
 
 handles.normbcs=normalize_bcs(handles.bcs);
-
-%% 20140904 -- can comment this section to recreate old behavior
-handles=compute_debarcoding(handles);
-
-temp_bcind=handles.bcind;
-temp_bcind(handles.deltas<0.3)=0;
-N=length(temp_bcind);
-
-
-neg_bcs=cell(1,handles.num_masses);
-% pos_bcs=cell(1,handles.num_masses);
-bc_list=1:handles.num_codes;
-neg_cofactor=zeros(1,handles.num_masses);
-% pos_med=zeros(1,handles.num_masses);
-for i=1:handles.num_masses
-    neg_list=bc_list(handles.key(:,i)==0);
-%     pos_list=bc_list(handles.key(:,i)==1);
-    neg_cells=false(N,1);
-%     pos_cells=false(N,1);
-    for j=neg_list
-        neg_cells=neg_cells | temp_bcind==j;
-    end
-%     for j=pos_list
-%         pos_cells=pos_cells | temp_bcind==j;
-%     end
-    neg_bcs{i}=handles.bcs(neg_cells,i); %this was already transformed using default cofactor
-%     pos_bcs{i}=handles.bcs(pos_cells,i); %this was already transformed using default cofactor
-    neg_cofactor(i)=handles.default_cofactor*sinh(prctile(neg_bcs{i},95)); %untransformed to raw data val
-%     pos_med(i)=handles.default_cofactor*sinh(median(pos_bcs{i})); %untransformed to raw data val
-end
-
-if any(isnan(neg_cofactor))
-    warndlg('Check your barcode key. You may have included a barcode metal that is constant across all occupied samples.')
-    neg_cofactor(isnan(neg_cofactor))=5;
-end
-
-neg_cofactor(neg_cofactor<5)=5; %5 is default minimum
-neg_cofactor(neg_cofactor>100)=100; %5 is default minimum
-
-
-% %find median of pos bcs for each barcode sample
-% norm_vals=zeros(size(handles.key));
-% for i=1:handles.num_codes
-%     bci=handles.bcs(handles.bcind==i,:);
-%     pos_masses=handles.key(i,:)==1;
-%     norm_vals(i,pos_masses)=median(bci(:,pos_masses));
-% end
-
-%retransform bcs and norm_vals
-cofactored_bcs=zeros(size(handles.bcs));
-
-for i=1:handles.num_masses
-cofactored_bcs(:,i)=asinh(handles.default_cofactor*sinh(handles.bcs(:,i))/neg_cofactor(i));
-% norm_vals(:,i)=asinh(handles.default_cofactor*sinh(norm_vals(:,i))/neg_cofactor(i)); %may not use this
-handles.cofactored_xt(:,i)=bmtrans(handles.raw_xt,neg_cofactor(i));
-end
-handles.cofactored_xl=handles.cofactored_xt([1 end],:);
-
-handles.cofactors=neg_cofactor;
-handles.cofactored_bcs=cofactored_bcs;
-
-%
-handles.normbcs=normalize_bcs(cofactored_bcs);
-%% end 20140904
 
 handles=debarcode_button_Callback(hObject, eventdata, handles);
 
