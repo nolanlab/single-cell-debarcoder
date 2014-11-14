@@ -55,8 +55,7 @@ function single_cell_debarcode_gui_OpeningFcn(hObject, eventdata, handles, varar
 % Choose default command line output for single_cell_debarcode_gui
 handles.output = hObject;
 
-% setup default initial view
-
+% color order
 co=[     0    0.5000    0.4000
     0.7500         0    0.7500
     1.0000    0.8000         0
@@ -65,12 +64,12 @@ co=[     0    0.5000    0.4000
          0    0.7500    1.0000
     0.4000    0.4000    0.4000];
 
+% parent figure properties
 handles.parent=gcf;
 set(handles.parent,'WindowStyle','normal','Name','Single Cell Debarcoder',...
     'DefaultAxesColorOrder',co)
 
-% set(handles.ax,'visible','off')
-% set(handles.yield_axis,'visible','off')
+% setup default initial view
 set(handles.well_popup,'visible','off')
 set(handles.pop_fwd,'visible','off')
 set(handles.pop_back,'visible','off')
@@ -82,8 +81,7 @@ set(handles.color_panel,'SelectionChangeFcn',{@color_changefcn,handles})
 set(handles.color_panel,'SelectedObject',handles.color_mahal)
 set(handles.plot_button,'visible','off')
 
-%  initialize parameters
-
+% initialize parameters
 set(handles.delta_text,'string','0.3')
 handles.sep_cutoff=0.3;
 
@@ -92,17 +90,15 @@ handles.mahal_cutoff_val=30;
 
 handles.default_cofactor=5;
 
+% axis limits and ticks
 axticks=load('axticks.mat');
-
+handles.xtl=axticks.xtl;
 handles.raw_xl=[-10, 10000];
 handles.raw_xt=axticks.xt;
-
 handles.default_xl=bmtrans(handles.raw_xl,handles.default_cofactor);
 handles.default_xt=bmtrans(axticks.xt,handles.default_cofactor);
 
-handles.xtl=axticks.xtl;
-
-%remove unwanted toolbar options
+% remove unwanted toolbar options
 set(hObject,'toolbar','figure');
 hu=findall(hObject,'type','uitoolbar');
 ch=findall(hu);
@@ -115,10 +111,10 @@ for i=1:length(ch)
 end
 delete(ch(chbin))
 
-%update handles
+% update handles
 guidata(hObject, handles)
 
-%load barcode key
+% load barcode key
 bc_button_Callback(hObject, eventdata, handles);
 
 
@@ -133,11 +129,15 @@ function varargout = single_cell_debarcode_gui_OutputFcn(hObject, eventdata, han
 varargout{1} = handles.output;
 
 function color_changefcn(hObject,eventdata,handles)
+% executes upon change in selection of the 'Color Plot By' radio button.
+% This sets the coloring parameter to either Mahalanobis distance or
+% Barcode Separation Threshold and re-plots the data.
 handles=guidata(handles.parent);
 plot_button_Callback(hObject,eventdata,handles)
 
 function plot_changefcn(hObject,eventdata,handles)
-%switches between views for the different plotting options
+% executes upon change in selection of the 'Plot Type' radio button.
+% Switches the view to the selected plot type and re-plots the data.
 selectedobj = get(handles.plottype,'SelectedObject');
 handles=guidata(handles.parent);
 switch get(selectedobj,'string')
@@ -171,11 +171,12 @@ switch get(selectedobj,'string')
 end
 plot_button_Callback(hObject, eventdata, handles)
 
-% --- Executes on button press in plot_button.
+
 function plot_button_Callback(hObject, eventdata, handles)
-% hObject    handle to plot_button (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% creates the plot of the type selected by the 'Plot Type' radio button and
+% the parameters selected in the 'Plot Options' panel. The plot button has
+% been removed and instead this is set to execute automatically upon any change to plot
+% type or plot options.
 
 selectedobj = get(handles.plottype,'SelectedObject');
 
@@ -194,6 +195,7 @@ if ~isempty(wellnum)
             oldax=get(handles.ax_panel,'children');
             delete(oldax)
             
+            %raw bcs
             ax=zeros(1,2);
             ax(1)=subplot(2,1,1,'parent',handles.ax_panel);
             hold on
@@ -202,15 +204,13 @@ if ~isempty(wellnum)
             if ~isempty(thiswell)
                 s=1:size(thiswell,1);
                 plot3(s,thiswell,rand(size(s))-1,'.')
-                hold on
-                
+                hold on              
                 set(ax(1),'Box','off','xtick',[],'Layer','top')
                 set(ax(1),'ytick',handles.default_xt,'yticklabel',handles.xtl)
                 set(get(ax(1),'Ylabel'),'String','untransformed values','fontsize',12)
                 set(get(ax(1),'Ylabel'),'String','Barcode intensities','fontsize',12)
                 xlabel('Event','fontsize',12)
-                legend(handles.leg,'location','northeastoutside')
-                
+                legend(handles.leg,'location','northeastoutside')    
             end
             title(num2str(handles.key(wellnum,:)),'fontweight','bold','fontsize',12);
             
@@ -218,8 +218,7 @@ if ~isempty(wellnum)
             ax(2)=subplot(2,1,2,'parent',handles.ax_panel);
             hold on
             
-            thiswell=handles.normbcs(thiswell_bin,:);
-            
+            thiswell=handles.normbcs(thiswell_bin,:);           
             if ~isempty(thiswell)
                 s=1:size(thiswell,1);
                 plot3(s,thiswell,rand(size(s)),'.');
@@ -232,8 +231,7 @@ if ~isempty(wellnum)
             hlink=linkprop(ax,'xLim');
             key = 'graphics_linkprop';
             setappdata(ax(1),key,hlink);
-            
-            
+                        
         case 'Single Biaxial'
             oldax=get(handles.ax_panel,'children');
             delete(oldax)
@@ -327,8 +325,6 @@ if ~isempty(wellnum)
                 end
             end
             
-            
-            
             bigax=axes('parent',handles.ax_panel);
             if get(handles.color_panel,'SelectedObject') == handles.color_mahal
                 colormap(flipud(cm))
@@ -375,88 +371,81 @@ end
 
 
 function handles=compute_debarcoding(handles)
+% for each event of normalized barcode intensities, assign that event to a
+% barcode and calculate the barcode separation
 
-%cutoff=bmtrans(str2double(get(handles.cutoff_text,'string')),handles.cofactor);
-cutoff=0;
+cutoff=0; %this was used to prevent large negative values from appearing to have sufficient separation from values near zero (not
+    %needed without the +/-100 routine)
 N=size(handles.bcs,1);
 indlist=(1:N)';
 
-if length(unique(sum(handles.key,2)))==1 %doublet-free    
-    %look at top k barcodes, rather than barcodes above largest separation
+if length(unique(sum(handles.key,2)))==1 
+% doublet-filtering code: look at top k barcodes, rather than barcodes
+% above largest separation
     
-    [sorted,ix]=sort(handles.normbcs,2,'descend');
+    [sorted,ix]=sort(handles.normbcs,2,'descend'); %barcode intensities ordered within each event
     
-    numdf=sum(handles.key(1,:));  %number of positive BCs per well
+    numdf=sum(handles.key(1,:));  %number of expected positive barcode intensities 
     
     lowests=sorted(:,numdf); %the value of the lowest 'positive' BC for each cell
     
     %get rid of cells whose 'positive' barcodes are still very low (not
-    % needed without the +/-100 routine
-    inds1=sub2ind(size(ix),indlist,ix(:,numdf));
-    toolow1=handles.bcs(inds1)<cutoff; %using bcs, not normbcs
-    lowests(toolow1)=nan;    
+    %needed without the +/-100 routine)
+    inds=sub2ind(size(ix),indlist,ix(:,numdf));
+    toolow=handles.bcs(inds)<cutoff; %using bcs, not normbcs
+    lowests(toolow)=nan;    
     
     deltas=sorted(:,numdf)-sorted(:,numdf+1);  %separation between 'positive' and 'negative' barcodes for each cell
     
-else %find largest separation to assign 'positive' and 'negative'
+else
+% non-constant number of '1's in code, so find largest separation within each event to assign 'positive' and 'negative' channels
     
-    [sorted,ix]=sort(handles.normbcs,2,'ascend');
+    [sorted,ix]=sort(handles.normbcs,2,'ascend'); %barcode intensities ordered within each event
     
-    seps=diff(sorted,1,2);
+    seps=diff(sorted,1,2); %barcode separations between every consecutive ordered barcode within each event
     
+    [~,locs]=sort(seps,2,'descend');  %locs are columns in ix of bc level that is on lower side of largest gap, e.g., if locs is 5, the largest bc separation is between barcode ix(5) and ix(6)
     
+    betws=ix(sub2ind(size(ix),indlist,locs(:,1)+1));  %columns of lowest barcode that is above the largest separation in each event
+    lowests=handles.normbcs(sub2ind(size(handles.bcs),indlist,betws));  %normalized transformed values of lowest 'positive' BC
     
-    [~,locs]=sort(seps,2,'descend');  %locs are locations in ix of bc level that is on lower side of largest gap.  i.e., if locs is 5, the largest bc separation is between barcode ix(5) and ix(6)
-    
-    indsabove=sub2ind(size(ix),indlist,locs(:,1)+1);  %+1 so that finding the lowest 'positive' bc
-    betws=ix(indsabove); %indices of which BC is lowest 'positive'
-    indsabove=sub2ind(size(handles.bcs),indlist,betws); 
-    % lowests=handles.bcs(inds);  %transformed values of lowest "good" BC %switched to normalized BCs
-    lowests=handles.normbcs(indsabove);  %normalized transformed values of lowest 'positive' BC
-    
-    %%%finding the highest 'negative' BC
-    indsbelow=sub2ind(size(ix),indlist,locs(:,1));
-    betws=ix(indsbelow);
-    indsbelow=sub2ind(size(handles.bcs),indlist,betws);
-    % nextlowests=handles.bcs(inds); %switched to normalized BCs
-    nextlowests=handles.normbcs(indsbelow); %normalized transformed values of highest 'negative' BC
-    
-    %%%
+    betws=ix(sub2ind(size(ix),indlist,locs(:,1))); % columns of highest barcode that is below the largest separation in each event
+    nextlowests=handles.normbcs(sub2ind(size(handles.bcs),indlist,betws)); %normalized transformed values of highest 'negative' BC
     
     toolow=find(handles.bcs(indsabove)<cutoff);  %these aren't high enough to count.  go to next-biggest-sep. using actual bcs here, not normalized
-    inds=sub2ind(size(ix),toolow,locs(toolow,2)+1);
-    betws2=ix(inds);
-    inds=sub2ind(size(handles.bcs),toolow,betws2);
-    lowests2=handles.normbcs(inds);
+    
+    betws=ix(sub2ind(size(ix),toolow,locs(toolow,2)+1));
+    inds=sub2ind(size(handles.bcs),toolow,betws);
+    lowests_next=handles.normbcs(inds);
     highernow=handles.bcs(inds)>cutoff;  %again using actualy bcs, not normalized, to check against cutoff
     %might still need to account for when the largest sep is high ...  can
     %first try eliminating these just with illegal barcodes
-    lowests(toolow(highernow))=lowests2(highernow);
-    lowests(toolow(~highernow))=nan;  %if the second try didn't find one >10, set to nan
+    lowests(toolow(highernow))=lowests_next(highernow);
+    lowests(toolow(~highernow))=nan;  %if the second try didn't find one above the cutoff, set to nan
     
-    %adding in the replaced "non-real" bc
-    inds=sub2ind(size(ix),toolow,locs(toolow,2));
-    betws2=ix(inds);
-    inds=sub2ind(size(handles.bcs),toolow,betws2);
-    % nextlowests2=handles.bcs(inds);  %switched to normalized bcs
-    nextlowests2=handles.normbcs(inds);
+    %adding in the replaced bcs
+    betws=ix(sub2ind(size(ix),toolow,locs(toolow,2)));
+    inds=sub2ind(size(handles.bcs),toolow,betws);
+
+    modifiednextlowests2=handles.normbcs(inds);
     nextlowests(toolow(highernow))=nextlowests2(highernow);
     nextlowests(toolow(~highernow))=nan;
     
-    deltas=lowests-nextlowests;
+    deltas=lowests-nextlowests;  %separation between 'positive' and 'negative' barcodes for each cell
     
 end
 
 handles.deltas=deltas;
 
-code_assign=false(N,handles.num_masses);  %rows will be barcodes of each cell
+% assign binary barcodes to each cell 
+code_assign=false(N,handles.num_masses);  
 for j=1:handles.num_masses
     code_assign(:,j)=handles.normbcs(:,j) >= lowests;
 end
 
+% assign barcode ID (1:num_barcodes) to each cell
 handles.bcind=zeros(N,1);
 num_cells=size(handles.bcs,1);
-
 for i=1:handles.num_codes
     clust_inds=true(num_cells,1);
     for j=1:handles.num_masses
@@ -477,44 +466,40 @@ FileName=get(handles.save_text,'string');
 sep_cutoff=handles.sep_cutoff;
 
 PathName = uigetdir;
+
 if PathName ~= 0
     
     set(handles.parent,'pointer','watch')
     drawnow
     
-    % need to recompute handles.bcind using all (not just sampled) cells
-    
+    % recompute handles.bcind using all (not just sampled) cells    
     handles.bcs=zeros(size(handles.x,1),handles.num_masses);
     for i=1:handles.num_masses
-    handles.bcs(:,i)=bmtrans(handles.x(:,handles.bc_cols(i)),handles.cofactors(i)); %switching sampled bcs to full bcs
+    handles.bcs(:,i)=bmtrans(handles.x(:,handles.bc_cols(i)),handles.cofactors(i)); 
     end
     
     handles.normbcs=normalize_bcs(handles.bcs);
 
     handles=compute_debarcoding(handles);
     
-    % compute mahalanobis distances
     handles=compute_mahal(handles);
-        
-    not_inawell=true(size(handles.bcind));
     
-    for i=1:length(handles.wellLabels)
-           
-        thiswell_bin = (handles.bcind==i) & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > sep_cutoff);
-        
-        not_inawell(thiswell_bin)=false; %cells in this well removed from unassigned_binary
-        
+    % write an fcs file for each barcode
+    not_inawell=true(size(handles.bcind));
+    for i=1:length(handles.wellLabels)    
+        thiswell_bin = (handles.bcind==i) & (handles.mahal<handles.mahal_cutoff_val) & (handles.deltas > sep_cutoff);        
+        not_inawell(thiswell_bin)=false; %cells in this well removed from unassigned_binary       
         data=handles.x(thiswell_bin,:);
         if ~isempty(data)
             fca_writefcs([PathName filesep FileName '_' handles.wellLabels{i} '.fcs'],data,handles.m,handles.c)
-            wellNumbers(thiswell_bin)=i; %%%
         end
     end
 
+    % write fcs file of unassigned events
     data=handles.x(not_inawell,:);
-    
     fca_writefcs([PathName filesep FileName '_unassigned.fcs'],data,handles.m,handles.c)
 
+    % write log file of debarcoding process
     fid=fopen([PathName filesep 'Debarcode_Parameters.txt'],'w');
     fprintf(fid,'%s\n',datestr(now));
     fprintf(fid,'%s\n','Input files:');
@@ -534,6 +519,10 @@ else
 end
 
 function normed_bcs = normalize_bcs(raw_bcs)
+% rescale the transformed bcs for each parameter: note that this step
+% assumes that every parameter has both a positive and negative population
+% and when this assumption fails the rescaling can lead to wrong barcode
+% assignment
 
 percs=prctile(raw_bcs,[1 99]);
 ranges=diff(percs);
@@ -544,18 +533,12 @@ normed_bcs=bsxfun(@rdivide,deltas,ranges);
 
 % --- Executes on button press in folder_button.
 function folder_button_Callback(hObject, eventdata, handles)
-% hObject    handle to folder_button (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% read in an fcs file. if multiple files are selected, they are
+% concatenated
 
 [files,handles.pathname] = uigetfile('*.fcs','Select fcs files to debarcode','multiselect','on');
 
-if isfield(handles,'gated')
-    handles=rmfield(handles,'gated');
-end
-
-if handles.pathname ~= 0
-    
+if handles.pathname ~= 0    
     set(handles.parent,'pointer','watch')
     drawnow
     
@@ -566,25 +549,23 @@ if handles.pathname ~= 0
             [z{i},h]=fca_readfcs([handles.pathname filesep files{i}]);
         end
         handles.x=cat(1,z{:});
-        
+       
         formatstr=repmat('\n%s',[1 num_files]);
-        str=sprintf(['Using files:' formatstr],files{:});
-        
+        str=sprintf(['Using files:' formatstr],files{:});        
         handles.current_files=files;
     else
         [handles.x,h]=fca_readfcs([handles.pathname filesep files]);
         
-        str=sprintf('Using file:\n%s',files);
-        
+        str=sprintf('Using file:\n%s',files);        
         handles.current_files={files};
-    end
-    
+    end    
     
     handles.c={h.par.name};
     handles.m={h.par.name2};
     
     set(handles.file_text,'string',str);
     
+    % find bc columns and do preliminary transformation
     handles=load_bc_data(hObject, eventdata,handles);
     
     guidata(hObject,handles)
@@ -594,12 +575,8 @@ else
 end
 
 
-
-% --- Executes on button press in debarcode_button.
 function handles=debarcode_button_Callback(hObject, eventdata, handles)
-% hObject    handle to debarcode_button (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% executes 
 
 if ~isfield(handles,'x')
     msgbox('You must first load fcs files!')
@@ -614,14 +591,13 @@ end
 set(handles.parent,'pointer','watch')
 drawnow
 
-
+% assign barcodes
 handles=compute_debarcoding(handles);
 
 % compute mahalanobis distances
 handles=compute_mahal(handles);
 
-% plot well abundances
-
+% compute well abundances
 numseps=20;
 minsep=0;
 maxsep=1;
@@ -635,8 +611,8 @@ for i=1:numseps
     end
 end
 
+% plot well abundances
 set(handles.plottype,'SelectedObject',handles.separation_plot)
-
 handles=separation_plot(handles);
 
 drawnow
@@ -644,6 +620,8 @@ set(handles.parent,'pointer','arrow')
 drawnow
 
 function handles=separation_plot(handles)
+% makes a histogram of total yield binned by barcode separation, and a plot of each well's yield as
+% a function of separation cutoff
 
 ch=get(handles.yield_panel,'children');
 delete(ch)
@@ -666,6 +644,8 @@ set(handles.lines,'ButtonDownFcn',{@select_line,handles});
 
 
 function select_line(button,eventdata,handles)
+% displays on the separation plot of barcode label of any line selected by
+% the mouse
 
 ch=get(handles.ax,'children');
 T=ch(strcmp('text',get(ch,'type')));
@@ -678,6 +658,8 @@ cp=get(handles.ax,'currentpoint');
 text(cp(1,1),cp(1,2),handles.wellLabels{ind},'fontsize',12,'verticalalignment','baseline','edgecolor','k','backgroundcolor','w','interpreter','none')
 
 function handles=compute_mahal(handles)
+% computes the mahalanobis distances of all events given the current
+% separation cutoff
 
 handles.mahal=zeros(size(handles.deltas));
 for i=1:handles.num_codes
@@ -690,21 +672,16 @@ for i=1:handles.num_codes
 end
 
 function handles=delta_text_Callback(hObject, eventdata, handles)
-% hObject    handle to delta_text (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of delta_text as text
-%        str2double(get(hObject,'String')) returns contents of delta_text as a double
+% executes upon a change to the separation cutoff value
 
 % update separation cutoff
-
 handles.sep_cutoff=str2double(get(handles.delta_text,'string'));
 
 % compute mahalanobis distances
-
 handles=compute_mahal(handles);
 
+% re-plots the data if a separation-cutoff dependent plot is being
+% displayed
 selectedobj=get(handles.plottype,'SelectedObject');
 if ~strcmp(get(selectedobj,'string'),'Separation')
     plot_well_yields(handles)
@@ -751,9 +728,7 @@ end
 
 % --- Executes on button press in bc_button.
 function bc_button_Callback(hObject, eventdata, handles) %"Change" button to select barcode key
-% hObject    handle to bc_button (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% load a barcode key
 
 [handles.key_filename, handles.bcpathname]=uigetfile({'*.csv','*.CSV'},'Select barcode key');
 
@@ -774,8 +749,7 @@ if handles.bcpathname ~= 0
     handles.key=x.data(2:end,:);
     
     handles.well_yield=zeros(handles.num_codes,1);
-   
-    
+       
     %if fcs file already loaded, update which are the bc cols and the bc data i
     if isfield(handles,'c')
         handles=load_bc_data(hObject, eventdata,handles);
@@ -787,6 +761,7 @@ else
 end
 
 function handles=load_bc_data(hObject, eventdata, handles)
+% extract barcode columns from the fcs file based on the barcode key
 
 try
     handles.bc_cols=find_bc_cols_by_mass(handles.c,handles.masses);
@@ -814,15 +789,15 @@ else
     handles.sample_ratio=1;
 end
 
+
 handles.normbcs=normalize_bcs(handles.bcs);
 
-%% 20140904 -- main cofactor update
+%% 20140904 -- main cofactor update -- TODO: cleanup
 handles=compute_debarcoding(handles);
 
 temp_bcind=handles.bcind;
 temp_bcind(handles.deltas<0.3)=0;
 N=length(temp_bcind);
-
 
 neg_bcs=cell(1,handles.num_masses);
 % pos_bcs=cell(1,handles.num_masses);
@@ -854,7 +829,6 @@ end
 neg_cofactor(neg_cofactor<5)=5; %5 is default minimum
 neg_cofactor(neg_cofactor>100)=100; %5 is default minimum
 
-
 % %find median of pos bcs for each barcode sample
 % norm_vals=zeros(size(handles.key));
 % for i=1:handles.num_codes
@@ -872,11 +846,8 @@ cofactored_bcs(:,i)=asinh(handles.default_cofactor*sinh(handles.bcs(:,i))/neg_co
 handles.cofactored_xt(:,i)=bmtrans(handles.raw_xt,neg_cofactor(i));
 end
 handles.cofactored_xl=handles.cofactored_xt([1 end],:);
-
 handles.cofactors=neg_cofactor;
 handles.cofactored_bcs=cofactored_bcs;
-
-%
 handles.normbcs=normalize_bcs(cofactored_bcs);
 %% end 
 
@@ -1092,12 +1063,7 @@ end
 
 
 function handles=mahal_cutoff_Callback(hObject, eventdata, handles)
-% hObject    handle to mahal_cutoff (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of mahal_cutoff as text
-%        str2double(get(hObject,'String')) returns contents of mahal_cutoff as a double
+% filter barcode assignments by mahalanobis distance threshold
 
 
 handles.mahal_cutoff_val=str2double(get(handles.mahal_cutoff,'string'));
@@ -1116,6 +1082,7 @@ end
 guidata(handles.parent,handles)
 
 function plot_well_yields(handles)
+% plots current well yields given chosen parameters
 
 ch=get(handles.yield_panel,'children');
 delete(ch)
@@ -1146,9 +1113,7 @@ end
 
 % --- Executes on button press in pop_back.
 function pop_back_Callback(hObject, eventdata, handles)
-% hObject    handle to pop_back (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% hmoves to the previous barcode for plotting
 
 popval=get(handles.well_popup,'value');
 if popval>1
@@ -1159,9 +1124,7 @@ plot_button_Callback(hObject, eventdata, handles)
 
 % --- Executes on button press in pop_fwd.
 function pop_fwd_Callback(hObject, eventdata, handles)
-% hObject    handle to pop_fwd (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+% moves to the next barcode for plotting
 
 popval=get(handles.well_popup,'value');
 if popval < length(handles.wellLabels);
@@ -1171,6 +1134,8 @@ plot_button_Callback(hObject, eventdata, handles)
 
 
 function bc_cols=find_bc_cols_by_mass(colnames, masses)
+% find the columns of the fcs file that correspond to those listed in the
+% barcode key
 
 num_cols=length(colnames);
 
@@ -1183,7 +1148,6 @@ if isfloat(masses)
     end
     masses=stringmasses;
 end
-
 
 for i=1:num_cols
     for j=1:length(masses)
@@ -1198,6 +1162,7 @@ if any(bc_cols == 0)
 end
 
 function y=bmtrans(x,c)
+%asinh transform with cofactor c
 num_cols=size(x,2);
 if length(c)==1 
     c=repmat(c,[1 num_cols]);
@@ -1208,12 +1173,7 @@ y(:,i)=asinh(1/c(i)*x(:,i));
 end
 
 function cofactor_Callback(hObject, eventdata, handles)
-% hObject    handle to cofactor (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-
-% Hints: get(hObject,'String') returns contents of cofactor as text
-%        str2double(get(hObject,'String')) returns contents of cofactor as a double
+% not in use: transform data based on user-selected cofactor
 
 old_cofactor=handles.cofactor_val;
 
