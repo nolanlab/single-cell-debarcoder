@@ -574,30 +574,9 @@ else
     return
 end
 
-
-function handles=debarcode_button_Callback(hObject, eventdata, handles)
-% executes 
-
-if ~isfield(handles,'x')
-    msgbox('You must first load fcs files!')
-    return
-end
-
-if ~isfield(handles,'bcs')
-    msgbox('Check your barcode key.')
-    return
-end
-
-set(handles.parent,'pointer','watch')
-drawnow
-
-% assign barcodes
-handles=compute_debarcoding(handles);
-
-% compute mahalanobis distances
-handles=compute_mahal(handles);
-
+function handles=compute_well_abundances(handles)
 % compute well abundances
+
 numseps=20;
 minsep=0;
 maxsep=1;
@@ -610,14 +589,6 @@ for i=1:numseps
         handles.clust_size(i,j) = nnz(handles.bcind==j & (handles.deltas > handles.seprange(i)));
     end
 end
-
-% plot well abundances
-set(handles.plottype,'SelectedObject',handles.separation_plot)
-handles=separation_plot(handles);
-
-drawnow
-set(handles.parent,'pointer','arrow')
-drawnow
 
 function handles=separation_plot(handles)
 % makes a histogram of total yield binned by barcode separation, and a plot of each well's yield as
@@ -763,6 +734,9 @@ end
 function handles=load_bc_data(hObject, eventdata, handles)
 % extract barcode columns from the fcs file based on the barcode key
 
+set(handles.parent,'pointer','watch')
+drawnow
+
 try
     handles.bc_cols=find_bc_cols_by_mass(handles.c,handles.masses);
 catch err
@@ -792,15 +766,28 @@ end
 
 handles.normbcs=normalize_bcs(handles.bcs);
 
-%% 20140904 -- main cofactor update 
 handles=compute_debarcoding(handles);
 
+%% 20140904 -- main cofactor update 
 handles=calculate_cofactors(handles);
 
 handles=recofactor(handles);
+
+handles=compute_debarcoding(handles);
 %% end 
 
-handles=debarcode_button_Callback(hObject, eventdata, handles);
+% compute mahalanobis distances
+handles=compute_mahal(handles);
+
+handles=compute_well_abundances(handles);
+
+% plot well abundances
+set(handles.plottype,'SelectedObject',handles.separation_plot)
+handles=separation_plot(handles);
+
+drawnow
+set(handles.parent,'pointer','arrow')
+drawnow
 
 set(handles.x_popup,'value',1)
 set(handles.y_popup,'value',2)
@@ -823,7 +810,6 @@ for i=1:length(handles.masses)
     end
 end
 
-handles=compute_mahal(handles);
 
 function handles=calculate_cofactors(handles)
 % determine a cofactor for each bc channel by pooling the negative barcodes
