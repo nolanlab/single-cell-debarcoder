@@ -792,8 +792,42 @@ end
 
 handles.normbcs=normalize_bcs(handles.bcs);
 
-%% 20140904 -- main cofactor update -- TODO: cleanup
+%% 20140904 -- main cofactor update 
 handles=compute_debarcoding(handles);
+
+handles=calculate_cofactors(handles);
+
+handles=recofactor(handles);
+%% end 
+
+handles=debarcode_button_Callback(hObject, eventdata, handles);
+
+set(handles.x_popup,'value',1)
+set(handles.y_popup,'value',2)
+
+if any(cellfun(@isempty,handles.m(handles.bc_cols)))
+    set(handles.x_popup,'string',handles.c(handles.bc_cols))
+    set(handles.y_popup,'string',handles.c(handles.bc_cols))
+else
+    set(handles.x_popup,'string',handles.m(handles.bc_cols))
+    set(handles.y_popup,'string',handles.m(handles.bc_cols))
+end
+
+handles.leg=cell(1,length(handles.masses));
+for i=1:length(handles.masses)
+    m_i=handles.m{handles.bc_cols(i)};
+    if ~isempty(m_i)
+        handles.leg{i}=m_i;
+    else
+        handles.leg{i}=handles.c{handles.bc_cols(i)};
+    end
+end
+
+handles=compute_mahal(handles);
+
+function handles=calculate_cofactors(handles)
+% determine a cofactor for each bc channel by pooling the negative barcodes
+% for that channel across the populations 
 
 temp_bcind=handles.bcind;
 temp_bcind(handles.deltas<0.3)=0;
@@ -828,6 +862,7 @@ end
 
 neg_cofactor(neg_cofactor<5)=5; %5 is default minimum
 neg_cofactor(neg_cofactor>100)=100; %5 is default minimum
+handles.cofactors=neg_cofactor;
 
 % %find median of pos bcs for each barcode sample
 % norm_vals=zeros(size(handles.key));
@@ -837,44 +872,21 @@ neg_cofactor(neg_cofactor>100)=100; %5 is default minimum
 %     norm_vals(i,pos_masses)=median(bci(:,pos_masses));
 % end
 
-%retransform bcs and norm_vals
+function handles=recofactor(handles)
+%retransform bcs and norm_vals from default cofactoring to variable
+%cofactoring
+
 cofactored_bcs=zeros(size(handles.bcs));
 
 for i=1:handles.num_masses
-cofactored_bcs(:,i)=asinh(handles.default_cofactor*sinh(handles.bcs(:,i))/neg_cofactor(i));
+cofactored_bcs(:,i)=asinh(handles.default_cofactor*sinh(handles.bcs(:,i))/handles.cofactors(i));
 % norm_vals(:,i)=asinh(handles.default_cofactor*sinh(norm_vals(:,i))/neg_cofactor(i)); %may not use this
-handles.cofactored_xt(:,i)=bmtrans(handles.raw_xt,neg_cofactor(i));
+handles.cofactored_xt(:,i)=bmtrans(handles.raw_xt,handles.cofactors(i));
 end
 handles.cofactored_xl=handles.cofactored_xt([1 end],:);
-handles.cofactors=neg_cofactor;
+
 handles.cofactored_bcs=cofactored_bcs;
 handles.normbcs=normalize_bcs(cofactored_bcs);
-%% end 
-
-handles=debarcode_button_Callback(hObject, eventdata, handles);
-
-set(handles.x_popup,'value',1)
-set(handles.y_popup,'value',2)
-
-if any(cellfun(@isempty,handles.m(handles.bc_cols)))
-    set(handles.x_popup,'string',handles.c(handles.bc_cols))
-    set(handles.y_popup,'string',handles.c(handles.bc_cols))
-else
-    set(handles.x_popup,'string',handles.m(handles.bc_cols))
-    set(handles.y_popup,'string',handles.m(handles.bc_cols))
-end
-
-handles.leg=cell(1,length(handles.masses));
-for i=1:length(handles.masses)
-    m_i=handles.m{handles.bc_cols(i)};
-    if ~isempty(m_i)
-        handles.leg{i}=m_i;
-    else
-        handles.leg{i}=handles.c{handles.bc_cols(i)};
-    end
-end
-
-handles=compute_mahal(handles);
 
 
 function save_text_Callback(hObject, eventdata, handles)
