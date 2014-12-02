@@ -28,7 +28,7 @@ classdef scd
         bcind
         cofactored_bcs
         cofactors
-        cotactored_xt
+        cofactored_xt
         cofactored_xl
         mahal
         seprange
@@ -41,6 +41,19 @@ classdef scd
     methods
         
         function obj = scd(key_filename)
+            
+            %set defaults
+            obj.default_cofactor=5;
+            obj.sep_cutoff=0.3;
+            obj.mahal_cutoff_val=30;
+            
+            axticks=load('axticks.mat');
+            obj.xtl=axticks.xtl;
+            obj.raw_xl=[-10, 10000];
+            obj.raw_xt=axticks.xt;
+            obj.default_xl=bmtrans(obj.raw_xl,obj.default_cofactor);
+            obj.default_xt=bmtrans(obj.raw_xt,obj.default_cofactor);
+            
             
             [pathstr, name, ext]=fileparts(key_filename);
             
@@ -67,6 +80,10 @@ classdef scd
             %add something here so that if fcs file already loaded,
             %it clears and updates
             
+            % if don't recofactor
+            obj.cofactored_xt=repmat(bmtrans(obj.raw_xt,obj.default_cofactor),[1 obj.num_masses]);
+            obj.cofactored_xl=obj.cofactored_xt([1 end],:);
+            obj.cofactors=repmat(obj.default_cofactor,[1 obj.num_masses]);
             
         end
         
@@ -88,6 +105,54 @@ classdef scd
             
             obj.c={h.par.name};
             obj.m={h.par.name2};
+            
+        end
+        
+        function obj = find_bc_cols_by_mass(obj)
+            
+            obj.bc_cols=zeros(1,obj.num_masses);
+            for i=1:obj.num_masses
+                col_i=find(~cellfun(@isempty,regexp(obj.c,obj.masses(i))));
+                if ~isempty(col_i) && length(col_i)==1
+                    obj.bc_cols(i)=col_i;
+                else
+                    error('not all barcode channels found')
+                end
+            end
+            
+        end
+        
+        function obj = load_bcs(obj, sample_size)
+        % extract and transform barcode columns from the fcs file based on the barcode key   
+            if isempty(obj.x)
+                error('An fcs file must be opened before loading BCs.')
+            end
+            
+            num_cells=size(obj.x,1);
+            
+            if nargin==2 && num_cells>sample_size
+                obj.bcs=bmtrans(obj.x(randsample(num_cells,sample_size),obj.bc_cols),obj.default_cofactor);
+                obj.sample_ratio=num_cells/sample_size;
+            else
+                obj.bcs=bmtrans(obj.x(:,obj.bc_cols),obj.default_cofactor);  %matrix of each cell's bc channels, transformed
+                obj.sample_ratio=1;
+            end
+     
+        end
+        
+        function obj = normalize_bcs(obj)
+            % rescale the transformed bcs for each parameter: note that this step
+            % assumes that every parameter has both a positive and negative population
+            % and when this assumption fails the rescaling can lead to wrong barcode
+            % assignment
+            
+            percs=prctile(obj.bcs,[1 99]);
+            ranges=diff(percs);
+            diffs=bsxfun(@minus,obj.bcs,percs(1,:));
+            obj.normbcs=bsxfun(@rdivide,diffs,ranges);
+            
+            %if don't recofactor
+            obj.cofactored_bcs=obj.normbcs;
             
         end
         
@@ -175,6 +240,58 @@ classdef scd
                 obj.bcind(clust_inds)=i;
             end
         end
+        
+        function obj = compute_mahal(obj)
+            % computes the mahalanobis distances of all events given the current
+            % separation cutoff
+            
+            obj.mahal=zeros(size(obj.deltas));
+            for i=1:obj.num_codes
+                in_bc=(obj.bcind==i) & (obj.deltas > obj.sep_cutoff);
+                bci=obj.bcs(in_bc,:);
+                if size(bci,1)>obj.num_codes
+                    obj.mahal(in_bc)=mahal(bci,bci);
+                end
+                obj.well_yield(i)=obj.sample_ratio*nnz(in_bc & obj.mahal<obj.mahal_cutoff_val);
+            end
+
+        end
+        
+        function obj=compute_well_abundances(obj)
+            % compute well abundances
+            
+            numseps=20;
+            minsep=0;
+            maxsep=1;
+            obj.seprange=linspace(minsep,maxsep,numseps);
+            
+            obj.clust_size=zeros(numseps,obj.num_codes);
+            
+            for i=1:numseps
+                for j=1:length(obj.wellLabels)
+                    obj.clust_size(i,j) = nnz(obj.bcind==j & (obj.deltas > obj.seprange(i)));
+                end
+            end
+            
+        end
+        
     end
+    
+    methods(Static)
+        
+        function y=bmtrans(x,c)
+            %asinh transform with cofactor c
+            num_cols=size(x,2);
+            if length(c)==1
+                c=repmat(c,[1 num_cols]);
+            end
+            y=zeros(size(x));
+            for i=1:num_cols
+                y(:,i)=asinh(1/c(i)*x(:,i));
+            end
+        end
+            
+    end
+    
     
 end
