@@ -562,7 +562,7 @@ function normed_bcs = normalize_bcs_by_pop(handles)
 %rescales the transformed bcs for each population using preliminary
 %assignments
 
-bc_num_thresh=100;
+bc_num_thresh=3;
 normed_bcs=zeros(size(handles.bcs));
 for i=1:handles.num_codes
     inbc=handles.bcind==i;
