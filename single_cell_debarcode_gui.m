@@ -463,8 +463,6 @@ function save_button_Callback(hObject, eventdata, handles)
 
 FileName=get(handles.save_text,'string');
 
-sep_cutoff=handles.obj.sep_cutoff;
-
 PathName = uigetdir;
 
 if PathName ~= 0
@@ -472,32 +470,7 @@ if PathName ~= 0
     set(handles.parent,'pointer','watch')
     drawnow
     
-    % recompute handles.bcind using all (not just sampled) cells    
-    handles.bcs=zeros(size(handles.x,1),handles.num_masses);
-    for i=1:handles.num_masses
-    handles.bcs(:,i)=bmtrans(handles.x(:,handles.bc_cols(i)),handles.cofactors(i)); 
-    end
-    
-    handles.normbcs=normalize_bcs(handles.bcs);
-
-    handles=compute_debarcoding(handles);
-    
-    handles=compute_mahal(handles);
-    
-    % write an fcs file for each barcode
-    not_inawell=true(size(handles.bcind));
-    for i=1:length(handles.wellLabels)    
-        thiswell_bin = (handles.bcind==i) & (handles.mahal<handles.obj.mahal_cutoff_val) & (handles.deltas > sep_cutoff);        
-        not_inawell(thiswell_bin)=false; %cells in this well removed from unassigned_binary       
-        data=handles.x(thiswell_bin,:);
-        if ~isempty(data)
-            fca_writefcs([PathName filesep FileName '_' handles.wellLabels{i} '.fcs'],data,handles.m,handles.c)
-        end
-    end
-
-    % write fcs file of unassigned events
-    data=handles.x(not_inawell,:);
-    fca_writefcs([PathName filesep FileName '_unassigned.fcs'],data,handles.m,handles.c)
+    handles.obj.write_bc_fcs_files(PathName,FileName)
 
     % write log file of debarcoding process
     fid=fopen([PathName filesep 'Debarcode_Parameters.txt'],'w');
@@ -506,7 +479,7 @@ if PathName ~= 0
     for i=1:length(handles.current_files)
         fprintf(fid,'\t%s\n',handles.current_files{i});
     end
-    fprintf(fid,'%s\n',['Barcode Key: ' handles.key_filename]);
+    fprintf(fid,'%s\n',['Barcode Key: ' handles.obj.key_filename]);
     fprintf(fid,'%s\n',['Mahalanobis cutoff: ' get(handles.mahal_cutoff,'string')]);
     fprintf(fid,'%s\n',['Separation cutoff: ' get(handles.delta_text,'string')]);
     fprintf(fid,'%s\n',['Output saved to: ' PathName filesep]);
@@ -610,11 +583,11 @@ text(cp(1,1),cp(1,2),handles.obj.wellLabels{ind},'fontsize',12,'verticalalignmen
 function handles=delta_text_Callback(hObject, eventdata, handles)
 % executes upon a change to the separation cutoff value
 
-% update separation cutoff
+% update separation cutoff in scd object whenever it is changed in GUI
 handles.obj.sep_cutoff=str2double(get(handles.delta_text,'string'));
 
 % compute mahalanobis distances
-handles=compute_mahal(handles);
+handles.obj=handles.obj.compute_mahal;
 
 % re-plots the data if a separation-cutoff dependent plot is being
 % displayed
@@ -1010,12 +983,13 @@ end
 function handles=mahal_cutoff_Callback(hObject, eventdata, handles)
 % filter barcode assignments by mahalanobis distance threshold
 
-
+% update the value of the mahal cutoff stored in the scd object whenever it
+% is changed in the GUI
 handles.obj.mahal_cutoff_val=str2double(get(handles.mahal_cutoff,'string'));
 
-within_cutoffs=handles.mahal<handles.obj.mahal_cutoff_val & handles.deltas>handles.obj.sep_cutoff;
-for i=1:handles.num_codes
-    handles.well_yield(i)=handles.sample_ratio*nnz(handles.bcind==i & within_cutoffs);
+within_cutoffs=handles.obj.mahal<handles.obj.mahal_cutoff_val & handles.obj.deltas>handles.obj.sep_cutoff;
+for i=1:handles.obj.num_codes
+    handles.obj.well_yield(i)=handles.obj.sample_ratio*nnz(handles.obj.bcind==i & within_cutoffs);
 end
 
 selectedobj=get(handles.plottype,'SelectedObject');

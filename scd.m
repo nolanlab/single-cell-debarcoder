@@ -17,7 +17,6 @@ classdef scd
         key
         well_yield
         x
-        current_files
         c
         m
         bc_cols
@@ -130,12 +129,17 @@ classdef scd
             
             num_cells=size(obj.x,1);
             
-            if nargin==2 && num_cells>sample_size
-                obj.bcs=bmtrans(obj.x(randsample(num_cells,sample_size),obj.bc_cols),obj.default_cofactor);
+            if nargin==2 && num_cells>sample_size %sample
+                obj.bcs=obj.x(randsample(num_cells,sample_size),obj.bc_cols);
                 obj.sample_ratio=num_cells/sample_size;
-            else
-                obj.bcs=bmtrans(obj.x(:,obj.bc_cols),obj.default_cofactor);  %matrix of each cell's bc channels, transformed
+            else %use all events
+                obj.bcs=obj.x(:,obj.bc_cols);  
                 obj.sample_ratio=1;
+            end
+            
+            %transform
+            for i=1:obj.num_masses
+                obj.bcs(:,i)=bmtrans(obj.bcs(:,i),obj.cofactors(i));
             end
      
         end
@@ -152,7 +156,7 @@ classdef scd
             obj.normbcs=bsxfun(@rdivide,diffs,ranges);
             
             %if don't recofactor
-            obj.cofactored_bcs=obj.normbcs;
+            obj.cofactored_bcs=obj.bcs;
             
         end
         
@@ -273,6 +277,39 @@ classdef scd
                 end
             end
             
+        end
+        
+        function write_bc_fcs_files(obj,outdir,basename)
+            %write an fcs for each barcode population, and a file of
+            %unassigned events. save in the directory
+            %outdir.
+            
+            if obj.sample_ratio<1 %need to load in all bcs because sampled before
+            obj = load_bcs(obj);       
+            
+            obj = obj.normalize_bcs;
+            
+            obj = obj.compute_debarcoding;
+            
+            obj = obj.compute_mahal;
+             
+            end
+            
+            % write an fcs file for each barcode
+            not_inawell=true(size(obj.bcind));
+            for i=1:obj.num_codes
+                thiswell_bin = (obj.bcind==i) & (obj.mahal<obj.mahal_cutoff_val) & (obj.deltas > obj.sep_cutoff);
+                not_inawell(thiswell_bin)=false; %cells in this well removed from unassigned_binary
+                data=obj.x(thiswell_bin,:);
+                if ~isempty(data)
+                    fca_writefcs([outdir filesep basename '_' obj.wellLabels{i} '.fcs'],data,obj.m,obj.c)
+                end
+            end
+            
+            % write fcs file of unassigned events
+            data=obj.x(not_inawell,:);
+            fca_writefcs([outdir filesep basename '_unassigned.fcs'],data,obj.m,obj.c)            
+           
         end
         
     end
