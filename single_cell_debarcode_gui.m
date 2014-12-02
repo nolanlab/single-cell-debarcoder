@@ -536,32 +536,24 @@ function folder_button_Callback(hObject, eventdata, handles)
 % read in an fcs file. if multiple files are selected, they are
 % concatenated
 
-[files,handles.pathname] = uigetfile('*.fcs','Select fcs files to debarcode','multiselect','on');
+[files,pathname] = uigetfile('*.fcs','Select fcs files to debarcode','multiselect','on');
 
-if handles.pathname ~= 0    
+if pathname ~= 0 %didn't hit cancel   
     set(handles.parent,'pointer','watch')
     drawnow
     
     if iscell(files) %more than 1 file selected, which means concatenation
-        num_files=length(files);
-        z=cell(1,num_files);
-        for i=1:num_files
-            [z{i},h]=fca_readfcs([handles.pathname filesep files{i}]);
-        end
-        handles.x=cat(1,z{:});
-       
-        formatstr=repmat('\n%s',[1 num_files]);
-        str=sprintf(['Using files:' formatstr],files{:});        
+        filenames=strcat(pathname,files);
+        formatstr=repmat('\n%s',[1 length(files)]);
+        str=sprintf(['Using files:' formatstr],files{:});
         handles.current_files=files;
     else
-        [handles.x,h]=fca_readfcs([handles.pathname filesep files]);
-        
-        str=sprintf('Using file:\n%s',files);        
+        filenames=fullfile(pathname,files);
+        str=sprintf('Using file:\n%s',files);
         handles.current_files={files};
-    end    
+    end
     
-    handles.c={h.par.name};
-    handles.m={h.par.name2};
+    handles.obj=handles.obj.load_fcs_files(filenames);
     
     set(handles.file_text,'string',str);
     
@@ -570,6 +562,8 @@ if handles.pathname ~= 0
     
     guidata(hObject,handles)
     
+    set(handles.parent,'pointer','arrow')
+    drawnow
 else
     return
 end
@@ -701,30 +695,19 @@ end
 function bc_button_Callback(hObject, eventdata, handles) %"Change" button to select barcode key
 % load a barcode key
 
-[handles.key_filename, handles.bcpathname]=uigetfile({'*.csv','*.CSV'},'Select barcode key');
+[key_filename, key_path]=uigetfile({'*.csv','*.CSV'},'Select barcode key');
 
-if handles.bcpathname ~= 0
-    
-    x=importdata([handles.bcpathname handles.key_filename]);
-    handles.masses=cellstr(num2str(x.data(1,:)'));
-    str=sprintf('Using key:\n%s',handles.key_filename);
-    set(handles.key_text,'string',str);
-    
-    handles.masses=cellstr(num2str(x.data(1,:)'));
-    handles.num_masses=length(handles.masses);
-    handles.wellLabels=x.textdata(2:end);
-    handles.num_codes=length(handles.wellLabels);
-    
-    set(handles.well_popup,'string',handles.wellLabels)
-    
-    handles.key=x.data(2:end,:);
-    
-    handles.well_yield=zeros(handles.num_codes,1);
-       
+handles.obj=scd(fullfile(key_path,key_filename));
+
+if ~isempty(handles.obj.key_filename)
+
+   str=sprintf('Using key:\n%s',handles.obj.key_filename);
+   set(handles.key_text,'string',str);
+  
     %if fcs file already loaded, update which are the bc cols and the bc data i
-    if isfield(handles,'c')
-        handles=load_bc_data(hObject, eventdata,handles);
-    end
+%     if isfield(handles,'c')
+%         handles=load_bc_data(hObject, eventdata,handles);
+%     end
     guidata(hObject,handles)
 
 else
