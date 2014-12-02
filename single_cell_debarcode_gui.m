@@ -454,6 +454,8 @@ for i=1:handles.num_codes
     handles.bcind(clust_inds)=i;
 end
 
+
+
 % --- Executes on button press in save_button.
 function save_button_Callback(hObject, eventdata, handles)
 % hObject    handle to save_button (see GCBO)
@@ -524,12 +526,63 @@ function normed_bcs = normalize_bcs(raw_bcs)
 % and when this assumption fails the rescaling can lead to wrong barcode
 % assignment
 
+%% default
+
 percs=prctile(raw_bcs,[1 99]);
 ranges=diff(percs);
 deltas=bsxfun(@minus,raw_bcs,percs(1,:));
 normed_bcs=bsxfun(@rdivide,deltas,ranges);
 
+%% single-cell rescaling
 
+% maxs=max(raw_bcs,[],2);
+% mins=min(raw_bcs,[],2);
+% diffs=maxs-mins;
+% deltas=bsxfun(@minus,raw_bcs,mins);
+% normed_bcs=bsxfun(@rdivide,deltas,diffs);
+
+%%  percentile rescaling, all channels pooled
+
+% percs=prctile(raw_bcs(:),[1 99]);
+% ranges=diff(percs);  %difference between 99th and 1st percentile of bc channels
+% deltas=raw_bcs - percs(1);
+% normed_bcs=deltas./ranges;  %could still collect on edges (0,1)
+
+%% dvs rescaling
+
+% means=mean(raw_bcs);
+% stds=std(raw_bcs);
+% norm_factor=max(means + 2.5*stds);
+% normed_bcs=raw_bcs/norm_factor;
+
+%%  population rescaling
+
+
+function normed_bcs = normalize_bcs_by_pop(handles)
+%rescales the transformed bcs for each population using preliminary
+%assignments
+
+bc_num_thresh=100;
+normed_bcs=zeros(size(handles.bcs));
+for i=1:handles.num_codes
+    inbc=handles.bcind==i;
+    if nnz(inbc)>bc_num_thresh
+        pos_bcs=handles.bcs(inbc,handles.key(i,:)==1);
+        norm_val=median(pos_bcs(:));
+        normed_bcs(inbc,:)=handles.bcs(inbc,:)/norm_val;
+        
+%         for j=pos_inds
+%            normed_bcs(inbc,j)=handles.bcs(inbc,j)/prctile(handles.bcs(inbc,j),95); 
+%         end
+%         neg_inds=find(handles.key(i,:)==0);
+%         for j=neg_inds
+%            normed_bcs(inbc,j)=handles.bcs(inbc,j)-median(handles.bcs(inbc,j)); 
+%         end
+    end
+    
+end
+
+handles.normbcs=normed_bcs;
 
 % --- Executes on button press in folder_button.
 function folder_button_Callback(hObject, eventdata, handles)
@@ -755,26 +808,42 @@ end
 num_cells=size(handles.x,1);
 sample_size=100000;
 
+%matrix of each cell's bc channels, transformed
 if num_cells>sample_size
     handles.bcs=bmtrans(handles.x(randsample(num_cells,sample_size),handles.bc_cols),handles.default_cofactor);
     handles.sample_ratio=num_cells/sample_size;
 else
-    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.default_cofactor);  %matrix of each cell's bc channels, transformed
+    handles.bcs=bmtrans(handles.x(:,handles.bc_cols),handles.default_cofactor);  
     handles.sample_ratio=1;
 end
 
-
-handles.normbcs=normalize_bcs(handles.bcs);
-
-handles=compute_debarcoding(handles);
-
-%% 20140904 -- main cofactor update 
-handles=calculate_cofactors(handles);
-
-handles=recofactor(handles);
+%first compute preliminary barcode assignments without doing any rescaling
+handles.normbcs=handles.bcs;
 
 handles=compute_debarcoding(handles);
-%% end 
+
+temp_bcind=handles.bcind;
+save('temp_bcind.mat','temp_bcind')
+
+%use assignments to rescale each preliminary population separately.
+%TODO: check if should use some filter, such as delta is greatest distance
+%between any two channels
+
+handles.normbcs=normalize_bcs_by_pop(handles);
+handles.cofactored_bcs=handles.bcs;
+handles.cofactors=[5 5 5 5 5 5];
+ 
+handles.cofactored_xt=repmat(bmtrans(handles.raw_xt,5),[1,6]);
+
+handles.cofactored_xl=handles.cofactored_xt([1 end],:);
+
+%handles=calculate_cofactors(handles);
+
+%handles=recofactor(handles);
+
+%debarcode again after population-wise rescaling
+handles=compute_debarcoding(handles);
+
 
 % compute mahalanobis distances
 handles=compute_mahal(handles);
