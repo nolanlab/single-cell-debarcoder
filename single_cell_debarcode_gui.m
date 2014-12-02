@@ -474,17 +474,17 @@ if PathName ~= 0
     set(handles.parent,'pointer','watch')
     drawnow
     
-    % recompute handles.bcind using all (not just sampled) cells    
-    handles.bcs=zeros(size(handles.x,1),handles.num_masses);
-    for i=1:handles.num_masses
-    handles.bcs(:,i)=bmtrans(handles.x(:,handles.bc_cols(i)),handles.cofactors(i)); 
-    end
-    
-    handles.normbcs=normalize_bcs(handles.bcs);
-
-    handles=compute_debarcoding(handles);
-    
-    handles=compute_mahal(handles);
+%     % recompute handles.bcind using all (not just sampled) cells    
+%     handles.bcs=zeros(size(handles.x,1),handles.num_masses);
+%     for i=1:handles.num_masses
+%     handles.bcs(:,i)=bmtrans(handles.x(:,handles.bc_cols(i)),handles.cofactors(i)); 
+%     end
+%     
+%     handles.normbcs=normalize_bcs(handles.bcs);
+% 
+%     handles=compute_debarcoding(handles);
+%     
+%     handles=compute_mahal(handles);
     
     % write an fcs file for each barcode
     not_inawell=true(size(handles.bcind));
@@ -568,7 +568,8 @@ for i=1:handles.num_codes
     inbc=handles.bcind==i;
     if nnz(inbc)>bc_num_thresh
         pos_bcs=handles.bcs(inbc,handles.key(i,:)==1);
-        norm_val=median(pos_bcs(:));
+%         norm_val=median(pos_bcs(:));
+        norm_val=prctile(pos_bcs(:),95);
         normed_bcs(inbc,:)=handles.bcs(inbc,:)/norm_val;
         
 %         for j=pos_inds
@@ -806,7 +807,7 @@ end
 
 %sample 100000 cells and use until save
 num_cells=size(handles.x,1);
-sample_size=100000;
+sample_size=200000;
 
 %matrix of each cell's bc channels, transformed
 if num_cells>sample_size
@@ -822,8 +823,6 @@ handles.normbcs=handles.bcs;
 
 handles=compute_debarcoding(handles);
 
-temp_bcind=handles.bcind;
-save('temp_bcind.mat','temp_bcind')
 
 %use assignments to rescale each preliminary population separately.
 %TODO: check if should use some filter, such as delta is greatest distance
@@ -831,7 +830,7 @@ save('temp_bcind.mat','temp_bcind')
 
 handles.normbcs=normalize_bcs_by_pop(handles);
 handles.cofactored_bcs=handles.bcs;
-handles.cofactors=[5 5 5 5 5 5];
+handles.cofactors=handles.default_cofactor*ones(1,6);
  
 handles.cofactored_xt=repmat(bmtrans(handles.raw_xt,5),[1,6]);
 
@@ -843,7 +842,10 @@ handles.cofactored_xl=handles.cofactored_xt([1 end],:);
 
 %debarcode again after population-wise rescaling
 handles=compute_debarcoding(handles);
-
+bci=handles.bcind;
+save('bci.mat','bci')
+deltas=handles.deltas;
+save('deltas.mat','deltas')
 
 % compute mahalanobis distances
 handles=compute_mahal(handles);
