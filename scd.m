@@ -392,9 +392,9 @@ classdef scd
             
             if obj.sample_ratio<1 %need to load in all bcs because sampled before
                 
-                obj = load_bcs(obj); %uses default cofactor
+                obj = obj.load_bcs; %uses default cofactor
                 
-                obj = obj.recofactor(obj); %creates updated cofactored_bcs
+                obj = obj.recofactor; %creates updated cofactored_bcs
                 
                 obj = obj.normalize_bcs('cofactored_bcs');
                 
