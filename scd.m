@@ -138,26 +138,29 @@ classdef scd
             end
             
             %transform
-            for i=1:obj.num_masses
-                obj.bcs(:,i)=bmtrans(obj.bcs(:,i),obj.cofactors(i));
-            end
+%             for i=1:obj.num_masses
+%                 obj.bcs(:,i)=bmtrans(obj.bcs(:,i),obj.cofactors(i));
+%             end
+            obj.bcs=bmtrans(obj.bcs,obj.default_cofactor);
      
+            %default, will change if recofactor
+            obj.cofactored_bcs=obj.bcs;
         end
         
-        function obj = normalize_bcs(obj)
-            % rescale the transformed bcs for each parameter: note that this step
+        function obj = normalize_bcs(obj,fieldname)
+            % rescale the data in obj.fieldname for each parameter: note that this step
             % assumes that every parameter has both a positive and negative population
             % and when this assumption fails the rescaling can lead to wrong barcode
-            % assignment
+            % assignment 
+            %fieldname should be 'bcs' or 'cofactored_bcs'
             
-            percs=prctile(obj.bcs,[1 99]);
+            eval(['data = obj.' fieldname ';'])
+            
+            percs=prctile(data,[1 99]);
             ranges=diff(percs);
-            diffs=bsxfun(@minus,obj.bcs,percs(1,:));
+            diffs=bsxfun(@minus,data,percs(1,:));
             obj.normbcs=bsxfun(@rdivide,diffs,ranges);
-            
-            %if don't recofactor
-            obj.cofactored_bcs=obj.bcs;
-            
+ 
         end
         
         function obj=compute_debarcoding(obj)
@@ -245,9 +248,59 @@ classdef scd
             end
         end
         
+        function obj=calculate_cofactors(obj)
+            % determine a cofactor for each bc channel by pooling the negative barcodes
+            % for that channel across the populations
+            
+            temp_bcind=obj.bcind;
+            temp_bcind(obj.deltas<obj.sep_cutoff)=0;
+            N=length(temp_bcind);
+            
+            neg_bcs=cell(1,obj.num_masses);
+            bc_list=1:obj.num_codes;
+            neg_cofactor=zeros(1,obj.num_masses);
+            for i=1:obj.num_masses
+                neg_list=bc_list(obj.key(:,i)==0);
+                neg_cells=false(N,1);
+                for j=neg_list
+                    neg_cells=neg_cells | temp_bcind==j;
+                end
+
+                neg_bcs{i}=obj.bcs(neg_cells,i); %this was already transformed using default cofactor
+                neg_cofactor(i)=obj.default_cofactor*sinh(prctile(neg_bcs{i},95)); %untransformed to raw data val
+            end
+            
+            if any(isnan(neg_cofactor))
+                warndlg('Check your barcode key. You may have included a barcode metal that is constant across all occupied samples.')
+                neg_cofactor(isnan(neg_cofactor))=5;
+            end
+            
+            neg_cofactor(neg_cofactor<5)=5; %5 is default minimum
+            neg_cofactor(neg_cofactor>100)=100; %5 is default minimum
+            obj.cofactors=neg_cofactor;
+        end      
+        
+        function obj=recofactor(obj)
+            %retransform cofactored_bcs and norm_vals from default cofactoring to variable
+            %cofactoring
+            
+%             cofactored_bcs=zeros(size(obj.bcs)); %already exists from
+%             when loaded
+            
+            for i=1:obj.num_masses
+                cofactored_bcs(:,i)=asinh(obj.default_cofactor*sinh(obj.bcs(:,i))/obj.cofactors(i));
+                obj.cofactored_xt(:,i)=bmtrans(obj.raw_xt,obj.cofactors(i));
+            end
+            obj.cofactored_xl=obj.cofactored_xt([1 end],:);
+            
+            obj.cofactored_bcs=cofactored_bcs;
+
+        end
+        
         function obj = compute_mahal(obj)
             % computes the mahalanobis distances of all events given the current
-            % separation cutoff
+            % separation cutoff, right now uses bcs but maybe should use
+            % cofactored or norm?
             
             obj.mahal=zeros(size(obj.deltas));
             for i=1:obj.num_codes
@@ -285,14 +338,17 @@ classdef scd
             %outdir.
             
             if obj.sample_ratio<1 %need to load in all bcs because sampled before
-            obj = load_bcs(obj);       
-            
-            obj = obj.normalize_bcs;
-            
-            obj = obj.compute_debarcoding;
-            
-            obj = obj.compute_mahal;
-             
+                
+                obj = load_bcs(obj); %uses default cofactor
+                
+                obj = obj.recofactor(obj); %creates updated cofactored_bcs
+                
+                obj = obj.normalize_bcs('cofactored_bcs');
+                
+                obj = obj.compute_debarcoding;
+                
+                obj = obj.compute_mahal;
+                
             end
             
             % write an fcs file for each barcode
@@ -327,6 +383,8 @@ classdef scd
                 y(:,i)=asinh(1/c(i)*x(:,i));
             end
         end
+        
+        
             
     end
     

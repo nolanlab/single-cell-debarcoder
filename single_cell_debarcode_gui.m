@@ -585,16 +585,22 @@ end
 sample_size=100000;
 handles.obj=handles.obj.load_bcs(sample_size);
 
-handles.obj=handles.obj.normalize_bcs;
+handles.obj=handles.obj.normalize_bcs('bcs');
+%calculates normbcs from bcs
 
 handles.obj=handles.obj.compute_debarcoding;
 
 %% 20140904 -- main cofactor update 
-% handles=calculate_cofactors(handles);
-% 
-% handles=recofactor(handles);
-% 
-% handles=compute_debarcoding(handles);
+handles.obj=handles.obj.calculate_cofactors; 
+
+handles.obj=handles.obj.recofactor;
+%calculates cofactored_bcs from bcs and cofactors
+
+handles.obj=handles.obj.normalize_bcs('cofactored_bcs');
+%calculates normbcs from cofactored_bcs
+
+handles.obj=handles.obj.compute_debarcoding;
+%calculates bcind from normbcs
 %% end 
 
 % compute mahalanobis distances
@@ -630,70 +636,6 @@ for i=1:handles.obj.num_masses
         handles.leg{i}=handles.obj.c{handles.obj.bc_cols(i)};
     end
 end
-
-
-function handles=calculate_cofactors(handles)
-% determine a cofactor for each bc channel by pooling the negative barcodes
-% for that channel across the populations 
-
-temp_bcind=handles.bcind;
-temp_bcind(handles.deltas<0.3)=0;
-N=length(temp_bcind);
-
-neg_bcs=cell(1,handles.num_masses);
-% pos_bcs=cell(1,handles.num_masses);
-bc_list=1:handles.num_codes;
-neg_cofactor=zeros(1,handles.num_masses);
-% pos_med=zeros(1,handles.num_masses);
-for i=1:handles.num_masses
-    neg_list=bc_list(handles.key(:,i)==0);
-%     pos_list=bc_list(handles.key(:,i)==1);
-    neg_cells=false(N,1);
-%     pos_cells=false(N,1);
-    for j=neg_list
-        neg_cells=neg_cells | temp_bcind==j;
-    end
-%     for j=pos_list
-%         pos_cells=pos_cells | temp_bcind==j;
-%     end
-    neg_bcs{i}=handles.bcs(neg_cells,i); %this was already transformed using default cofactor
-%     pos_bcs{i}=handles.bcs(pos_cells,i); %this was already transformed using default cofactor
-    neg_cofactor(i)=handles.obj.default_cofactor*sinh(prctile(neg_bcs{i},95)); %untransformed to raw data val
-%     pos_med(i)=handles.obj.default_cofactor*sinh(median(pos_bcs{i})); %untransformed to raw data val
-end
-
-if any(isnan(neg_cofactor))
-    warndlg('Check your barcode key. You may have included a barcode metal that is constant across all occupied samples.')
-    neg_cofactor(isnan(neg_cofactor))=5;
-end
-
-neg_cofactor(neg_cofactor<5)=5; %5 is default minimum
-neg_cofactor(neg_cofactor>100)=100; %5 is default minimum
-handles.cofactors=neg_cofactor;
-
-% %find median of pos bcs for each barcode sample
-% norm_vals=zeros(size(handles.key));
-% for i=1:handles.num_codes
-%     bci=handles.bcs(handles.bcind==i,:);
-%     pos_masses=handles.key(i,:)==1;
-%     norm_vals(i,pos_masses)=median(bci(:,pos_masses));
-% end
-
-function handles=recofactor(handles)
-%retransform bcs and norm_vals from default cofactoring to variable
-%cofactoring
-
-cofactored_bcs=zeros(size(handles.bcs));
-
-for i=1:handles.num_masses
-cofactored_bcs(:,i)=asinh(handles.obj.default_cofactor*sinh(handles.bcs(:,i))/handles.cofactors(i));
-% norm_vals(:,i)=asinh(handles.obj.default_cofactor*sinh(norm_vals(:,i))/neg_cofactor(i)); %may not use this
-handles.cofactored_xt(:,i)=bmtrans(handles.obj.raw_xt,handles.cofactors(i));
-end
-handles.cofactored_xl=handles.cofactored_xt([1 end],:);
-
-handles.cofactored_bcs=cofactored_bcs;
-handles.normbcs=normalize_bcs(cofactored_bcs);
 
 
 function save_text_Callback(hObject, eventdata, handles)
@@ -907,15 +849,16 @@ function plot_well_yields(handles)
 ch=get(handles.yield_panel,'children');
 delete(ch)
 yield_axis=subplot(5,1,[2 3 4],'parent',handles.yield_panel);
-bar(yield_axis,handles.obj.well_yield,'facecolor',[0 0.5 0.4])
+
+bar(yield_axis,1:handles.obj.num_codes,handles.obj.well_yield,'facecolor',[0 0.5 0.4])
 ylabel('Cell count')
 set(yield_axis,'xlim',[0 handles.obj.num_codes+1],'xtick',[])
 yl=get(yield_axis,'ylim');
 text(1:handles.obj.num_codes,-yl(2)/15*ones(1,handles.obj.num_codes),handles.obj.wellLabels,'rotation',315)
 
+
 total_yield=round(100*sum(handles.obj.well_yield)/size(handles.obj.x,1));
 title(yield_axis,['Barcode Yields with Current Filters: ' num2str(total_yield) '% assigned'],'fontsize',12)
-
 
 
 % --- Executes during object creation, after setting all properties.
