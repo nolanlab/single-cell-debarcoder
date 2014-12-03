@@ -32,14 +32,13 @@ classdef scd
         mahal
         seprange
         clust_size
-        ax
-        lines
-        leg
+
     end
     
     methods
         
         function obj = scd(key_filename)
+            %constructor parses barcode key and sets default parameters
             
             %set defaults
             obj.default_cofactor=5;
@@ -104,6 +103,18 @@ classdef scd
             
             obj.c={h.par.name};
             obj.m={h.par.name2};
+            
+            %remove any data specific to previous fcs file
+            obj.bcs=[];
+            obj.cofactored_bcs=[];
+            obj.well_yield=[];
+            obj.bc_cols=[];
+            obj.sample_ratio=[];
+            obj.normbcs=[];
+            obj.deltas=[];
+            obj.bcind=[];
+            obj.mahal=[];
+            obj.clust_size=[];
             
         end
         
