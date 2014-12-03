@@ -369,91 +369,6 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-
-function handles=compute_debarcoding(handles)
-% for each event of normalized barcode intensities, assign that event to a
-% barcode and calculate the barcode separation
-
-cutoff=0; %this was used to prevent large negative values from appearing to have sufficient separation from values near zero (not
-    %needed without the +/-100 routine)
-N=size(handles.bcs,1);
-indlist=(1:N)';
-
-if length(unique(sum(handles.key,2)))==1 
-% doublet-filtering code: look at top k barcodes, rather than barcodes
-% above largest separation
-    
-    [sorted,ix]=sort(handles.normbcs,2,'descend'); %barcode intensities ordered within each event
-    
-    numdf=sum(handles.key(1,:));  %number of expected positive barcode intensities 
-    
-    lowests=sorted(:,numdf); %the value of the lowest 'positive' BC for each cell
-    
-    %get rid of cells whose 'positive' barcodes are still very low (not
-    %needed without the +/-100 routine)
-    inds=sub2ind(size(ix),indlist,ix(:,numdf));
-    toolow=handles.bcs(inds)<cutoff; %using bcs, not normbcs
-    lowests(toolow)=nan;    
-    
-    deltas=sorted(:,numdf)-sorted(:,numdf+1);  %separation between 'positive' and 'negative' barcodes for each cell
-    
-else
-% non-constant number of '1's in code, so find largest separation within each event to assign 'positive' and 'negative' channels
-    
-    [sorted,ix]=sort(handles.normbcs,2,'ascend'); %barcode intensities ordered within each event
-    
-    seps=diff(sorted,1,2); %barcode separations between every consecutive ordered barcode within each event
-    
-    [~,locs]=sort(seps,2,'descend');  %locs are columns in ix of bc level that is on lower side of largest gap, e.g., if locs is 5, the largest bc separation is between barcode ix(5) and ix(6)
-    
-    betws=ix(sub2ind(size(ix),indlist,locs(:,1)+1));  %columns of lowest barcode that is above the largest separation in each event
-    lowests=handles.normbcs(sub2ind(size(handles.bcs),indlist,betws));  %normalized transformed values of lowest 'positive' BC
-    
-    betws=ix(sub2ind(size(ix),indlist,locs(:,1))); % columns of highest barcode that is below the largest separation in each event
-    nextlowests=handles.normbcs(sub2ind(size(handles.bcs),indlist,betws)); %normalized transformed values of highest 'negative' BC
-    
-    toolow=find(handles.bcs(indsabove)<cutoff);  %these aren't high enough to count.  go to next-biggest-sep. using actual bcs here, not normalized
-    
-    betws=ix(sub2ind(size(ix),toolow,locs(toolow,2)+1));
-    inds=sub2ind(size(handles.bcs),toolow,betws);
-    lowests_next=handles.normbcs(inds);
-    highernow=handles.bcs(inds)>cutoff;  %again using actualy bcs, not normalized, to check against cutoff
-    %might still need to account for when the largest sep is high ...  can
-    %first try eliminating these just with illegal barcodes
-    lowests(toolow(highernow))=lowests_next(highernow);
-    lowests(toolow(~highernow))=nan;  %if the second try didn't find one above the cutoff, set to nan
-    
-    %adding in the replaced bcs
-    betws=ix(sub2ind(size(ix),toolow,locs(toolow,2)));
-    inds=sub2ind(size(handles.bcs),toolow,betws);
-
-    modifiednextlowests2=handles.normbcs(inds);
-    nextlowests(toolow(highernow))=nextlowests2(highernow);
-    nextlowests(toolow(~highernow))=nan;
-    
-    deltas=lowests-nextlowests;  %separation between 'positive' and 'negative' barcodes for each cell
-    
-end
-
-handles.deltas=deltas;
-
-% assign binary barcodes to each cell 
-code_assign=false(N,handles.num_masses);  
-for j=1:handles.num_masses
-    code_assign(:,j)=handles.normbcs(:,j) >= lowests;
-end
-
-% assign barcode ID (1:num_barcodes) to each cell
-handles.bcind=zeros(N,1);
-num_cells=size(handles.bcs,1);
-for i=1:handles.num_codes
-    clust_inds=true(num_cells,1);
-    for j=1:handles.num_masses
-        clust_inds=clust_inds & (code_assign(:,j)==handles.key(i,j));
-    end
-    handles.bcind(clust_inds)=i;
-end
-
 % --- Executes on button press in save_button.
 function save_button_Callback(hObject, eventdata, handles)
 % hObject    handle to save_button (see GCBO)
@@ -491,19 +406,6 @@ else
     return
 end
 
-function normed_bcs = normalize_bcs(raw_bcs)
-% rescale the transformed bcs for each parameter: note that this step
-% assumes that every parameter has both a positive and negative population
-% and when this assumption fails the rescaling can lead to wrong barcode
-% assignment
-
-percs=prctile(raw_bcs,[1 99]);
-ranges=diff(percs);
-deltas=bsxfun(@minus,raw_bcs,percs(1,:));
-normed_bcs=bsxfun(@rdivide,deltas,ranges);
-
-
-
 % --- Executes on button press in folder_button.
 function folder_button_Callback(hObject, eventdata, handles)
 % read in an fcs file. if multiple files are selected, they are
@@ -525,10 +427,9 @@ if pathname ~= 0 %didn't hit cancel
         str=sprintf('Using file:\n%s',files);
         handles.current_files={files};
     end
+    set(handles.file_text,'string',str);
     
     handles.obj=handles.obj.load_fcs_files(filenames);
-    
-    set(handles.file_text,'string',str);
     
     % find bc columns and do preliminary transformation
     handles=load_bc_data(hObject, eventdata,handles);
@@ -1052,28 +953,3 @@ end
 plot_button_Callback(hObject, eventdata, handles)
 
 
-function cofactor_Callback(hObject, eventdata, handles)
-% not in use: transform data based on user-selected cofactor
-
-old_cofactor=handles.cofactor_val;
-
-handles.cofactor_val=str2double(get(handles.cofactor,'string'));
-
-handles.bcs=asinh(old_cofactor*sinh(handles.bcs)/handles.cofactor_val);
-
-handles.normbcs=normalize_bcs(handles.bcs);
-guidata(handles.parent,handles)
-
-
-
-% --- Executes during object creation, after setting all properties.
-function cofactor_CreateFcn(hObject, eventdata, handles)
-% hObject    handle to cofactor (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    empty - handles not created until after all CreateFcns called
-
-% Hint: edit controls usually have a white background on Windows.
-%       See ISPC and COMPUTER.
-if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
-    set(hObject,'BackgroundColor','white');
-end

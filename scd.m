@@ -64,15 +64,15 @@ classdef scd
             
             obj.key_filename=name;
             
-            x=importdata(key_filename);
-            obj.masses=cellstr(num2str(x.data(1,:)'));
+            y=importdata(key_filename);
+            obj.masses=cellstr(num2str(y.data(1,:)'));
             
-            obj.masses=cellstr(num2str(x.data(1,:)'));
+            obj.masses=cellstr(num2str(y.data(1,:)'));
             obj.num_masses=length(obj.masses);
-            obj.wellLabels=x.textdata(2:end);
+            obj.wellLabels=y.textdata(2:end);
             obj.num_codes=length(obj.wellLabels);
             
-            obj.key=x.data(2:end,:);
+            obj.key=y.data(2:end,:);
             
             obj.well_yield=zeros(obj.num_codes,1);
             
