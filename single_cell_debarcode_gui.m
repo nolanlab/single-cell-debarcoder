@@ -585,23 +585,27 @@ end
 sample_size=100000;
 handles.obj=handles.obj.load_bcs(sample_size);
 
-handles.obj=handles.obj.normalize_bcs('bcs');
-%calculates normbcs from bcs
+handles.obj=handles.obj.compute_debarcoding('bcs');
 
-handles.obj=handles.obj.compute_debarcoding;
+handles.obj=handles.obj.normalize_by_pop('bcs');
+
+% handles.obj=handles.obj.normalize_bcs('bcs');
+% %calculates normbcs from bcs
+
+handles.obj=handles.obj.compute_debarcoding('normbcs');
 %calculates bcinds from normbcs
 
 %% 20140904 -- main cofactor update 
-handles.obj=handles.obj.calculate_cofactors; 
-
-handles.obj=handles.obj.recofactor;
-%calculates cofactored_bcs from bcs and cofactors
-
-handles.obj=handles.obj.normalize_bcs('cofactored_bcs');
-%calculates normbcs from cofactored_bcs
-
-handles.obj=handles.obj.compute_debarcoding;
-%calculates bcind from normbcs
+% handles.obj=handles.obj.calculate_cofactors; 
+% 
+% handles.obj=handles.obj.recofactor;
+% %calculates cofactored_bcs from bcs and cofactors
+% 
+% handles.obj=handles.obj.normalize_bcs('cofactored_bcs');
+% %calculates normbcs from cofactored_bcs
+% 
+% handles.obj=handles.obj.compute_debarcoding;
+% %calculates bcind from normbcs
 %% end 
 
 % compute mahalanobis distances
