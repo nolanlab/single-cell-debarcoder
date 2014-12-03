@@ -40,11 +40,13 @@ classdef scd
         function obj = scd(key_filename)
             %constructor parses barcode key and sets default parameters
             
-            %set defaults
+            % set defaults
             obj.default_cofactor=10;
             obj.sep_cutoff=0.3;
             obj.mahal_cutoff_val=30;
             
+            % axis ticks for transformed values. may be needed later if
+            % plotting functions are added
             axticks=load('axticks.mat');
             obj.xtl=axticks.xtl;
             obj.raw_xl=[-10, 10000];
@@ -52,14 +54,16 @@ classdef scd
             obj.default_xl=bmtrans(obj.raw_xl,obj.default_cofactor);
             obj.default_xt=bmtrans(obj.raw_xt,obj.default_cofactor);
             
-            
+            %path to barcode key
             [pathstr, name, ext]=fileparts(key_filename);
             
             if ~strcmpi(ext,'.csv')
                 error('Barcode key must be a csv file.')
             end
             
-            %if can find file ...
+            if ~exist(key_filename,'file')
+                error('Barcode key filename not found.')
+            end
             
             obj.key_filename=name;
             
@@ -76,7 +80,7 @@ classdef scd
             obj.well_yield=zeros(obj.num_codes,1);
             
             %add something here so that if fcs file already loaded,
-            %it clears and updates
+            %it clears and updates?
             
             % if don't recofactor
             obj.cofactored_xt=repmat(bmtrans(obj.raw_xt,obj.default_cofactor),[1 obj.num_masses]);
@@ -119,7 +123,10 @@ classdef scd
         end
         
         function obj = find_bc_cols_by_mass(obj)
-            
+            % finds which columns of the loaded fcs file correspond to the masses listed in the barcode key
+            if isempty(obj.x)
+                error('An fcs file must be opened before assigning barcode columns.')
+            end
             obj.bc_cols=zeros(1,obj.num_masses);
             for i=1:obj.num_masses
                 col_i=find(~cellfun(@isempty,regexp(obj.c,obj.masses(i))));
@@ -136,6 +143,9 @@ classdef scd
         % extract and transform barcode columns from the fcs file based on the barcode key   
             if isempty(obj.x)
                 error('An fcs file must be opened before loading BCs.')
+            end
+            if isempty(obj.bc_cols)
+                error('Barcode columns must be found before loading BCs.')
             end
             
             num_cells=size(obj.x,1);
@@ -165,7 +175,15 @@ classdef scd
             % assignment 
             %fieldname should be 'bcs' or 'cofactored_bcs'
             
-            eval(['data = obj.' fieldname ';'])
+            if nargin<2
+                fieldname = 'bcs';
+            end
+            
+            if isempty(eval(['obj.' fieldname]))
+                error('Barcodes must be loaded before normalizing.')
+            end
+            
+            data = eval(['obj.' fieldname]);
             
             percs=prctile(data,[1 99]);
             ranges=diff(percs);
@@ -182,7 +200,11 @@ classdef scd
                 fieldname = 'bcs';
             end
             
-            eval(['data = obj.' fieldname ';'])
+            if isempty(eval(['obj.' fieldname]))
+                error('Barcodes must be loaded before normalizing.')
+            end
+            
+            data = eval(['obj.' fieldname]);
             
             bc_num_thresh=1;
             normed_bcs=zeros(size(data));
@@ -218,7 +240,11 @@ classdef scd
                 fieldname='normbcs';
             end
             
-            eval(['data = obj.' fieldname ';'])
+            if isempty(eval(['obj.' fieldname]))
+                error('Barcodes must be loaded before normalizing.')
+            end
+            
+            data = eval(['obj.' fieldname]);
             
             cutoff=0; %this was used to prevent large negative values from appearing to have sufficient separation from values near zero (not
             %needed without the +/-100 routine)
@@ -370,6 +396,10 @@ classdef scd
         function obj=compute_well_abundances(obj)
             % compute well abundances
             
+            if isempty(obj.bcind)
+                error('Barcodes must computed before computing well abundances.')
+            end
+            
             numseps=20;
             minsep=0;
             maxsep=1;
@@ -389,6 +419,10 @@ classdef scd
             %write an fcs for each barcode population, and a file of
             %unassigned events. save in the directory
             %outdir.
+            
+            sprintf('%s\n%s%g\n%s%g','Debarcoding data and writing FCS files.',...
+                'Barcode separation threshold = ',obj.sep_cutoff,...
+                'Mahalanobis distance threshold = ',obj.mahal_cutoff_val)
             
             if obj.sample_ratio<1 %need to load in all bcs because sampled before
                 
