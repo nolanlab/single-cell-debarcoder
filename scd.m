@@ -41,7 +41,7 @@ classdef scd
             %constructor parses barcode key and sets default parameters
             
             %set defaults
-            obj.default_cofactor=5;
+            obj.default_cofactor=10;
             obj.sep_cutoff=0.3;
             obj.mahal_cutoff_val=30;
             
@@ -174,9 +174,51 @@ classdef scd
  
         end
         
-        function obj=compute_debarcoding(obj)
+        function obj = normalize_by_pop(obj,fieldname)
+            %rescales the transformed bcs for each population using preliminary
+            %assignments
+            
+            if nargin < 2
+                fieldname = 'bcs';
+            end
+            
+            eval(['data = obj.' fieldname ';'])
+            
+            bc_num_thresh=1;
+            normed_bcs=zeros(size(data));
+            for i=1:obj.num_codes
+                inbc=obj.bcind==i;
+                if nnz(inbc)>bc_num_thresh
+                    pos_bcs=data(inbc,obj.key(i,:)==1);
+                    %         norm_val=median(pos_bcs(:));
+                    norm_val=prctile(pos_bcs(:),95);
+                    normed_bcs(inbc,:)=data(inbc,:)/norm_val;
+                    
+                    %         for j=pos_inds
+                    %            normed_bcs(inbc,j)=handles.bcs(inbc,j)/prctile(handles.bcs(inbc,j),95);
+                    %         end
+                    %         neg_inds=find(handles.key(i,:)==0);
+                    %         for j=neg_inds
+                    %            normed_bcs(inbc,j)=handles.bcs(inbc,j)-median(handles.bcs(inbc,j));
+                    %         end
+                end
+                
+            end
+            
+            obj.normbcs=normed_bcs;
+            
+        end
+        
+        function obj=compute_debarcoding(obj,fieldname)
             % for each event of normalized barcode intensities, assign that event to a
             % barcode and calculate the barcode separation
+            
+            %default to using normbcs
+            if nargin<2
+                fieldname='normbcs';
+            end
+            
+            eval(['data = obj.' fieldname ';'])
             
             cutoff=0; %this was used to prevent large negative values from appearing to have sufficient separation from values near zero (not
             %needed without the +/-100 routine)
@@ -187,7 +229,7 @@ classdef scd
                 % doublet-filtering code: look at top k barcodes, rather than barcodes
                 % above largest separation
                 
-                [sorted,ix]=sort(obj.normbcs,2,'descend'); %barcode intensities ordered within each event
+                [sorted,ix]=sort(data,2,'descend'); %barcode intensities ordered within each event
                 
                 numdf=sum(obj.key(1,:));  %number of expected positive barcode intensities
                 
@@ -204,23 +246,23 @@ classdef scd
             else
                 % non-constant number of '1's in code, so find largest separation within each event to assign 'positive' and 'negative' channels
                 
-                [sorted,ix]=sort(obj.normbcs,2,'ascend'); %barcode intensities ordered within each event
+                [sorted,ix]=sort(data,2,'ascend'); %barcode intensities ordered within each event
                 
                 seps=diff(sorted,1,2); %barcode separations between every consecutive ordered barcode within each event
                 
                 [~,locs]=sort(seps,2,'descend');  %locs are columns in ix of bc level that is on lower side of largest gap, e.g., if locs is 5, the largest bc separation is between barcode ix(5) and ix(6)
                 
                 betws=ix(sub2ind(size(ix),indlist,locs(:,1)+1));  %columns of lowest barcode that is above the largest separation in each event
-                lowests=obj.normbcs(sub2ind(size(obj.bcs),indlist,betws));  %normalized transformed values of lowest 'positive' BC
+                lowests=data(sub2ind(size(obj.bcs),indlist,betws));  %normalized transformed values of lowest 'positive' BC
                 
                 betws=ix(sub2ind(size(ix),indlist,locs(:,1))); % columns of highest barcode that is below the largest separation in each event
-                nextlowests=obj.normbcs(sub2ind(size(obj.bcs),indlist,betws)); %normalized transformed values of highest 'negative' BC
+                nextlowests=data(sub2ind(size(obj.bcs),indlist,betws)); %normalized transformed values of highest 'negative' BC
                 
                 toolow=find(obj.bcs(indsabove)<cutoff);  %these aren't high enough to count.  go to next-biggest-sep. using actual bcs here, not normalized
                 
                 betws=ix(sub2ind(size(ix),toolow,locs(toolow,2)+1));
                 inds=sub2ind(size(obj.bcs),toolow,betws);
-                lowests_next=obj.normbcs(inds);
+                lowests_next=data(inds);
                 highernow=obj.bcs(inds)>cutoff;  %again using actualy bcs, not normalized, to check against cutoff
                 %might still need to account for when the largest sep is high ...  can
                 %first try eliminating these just with illegal barcodes
@@ -231,7 +273,7 @@ classdef scd
                 betws=ix(sub2ind(size(ix),toolow,locs(toolow,2)));
                 inds=sub2ind(size(obj.bcs),toolow,betws);
                 
-                modifiednextlowests2=obj.normbcs(inds);
+                modifiednextlowests2=data(inds);
                 nextlowests(toolow(highernow))=nextlowests2(highernow);
                 nextlowests(toolow(~highernow))=nan;
                 
@@ -244,7 +286,7 @@ classdef scd
             % assign binary barcodes to each cell
             code_assign=false(N,obj.num_masses);
             for j=1:obj.num_masses
-                code_assign(:,j)=obj.normbcs(:,j) >= lowests;
+                code_assign(:,j)=data(:,j) >= lowests;
             end
             
             % assign barcode ID (1:num_barcodes) to each cell
@@ -264,7 +306,7 @@ classdef scd
             % for that channel across the populations
             
             temp_bcind=obj.bcind;
-            temp_bcind(obj.deltas<obj.sep_cutoff)=0;
+%             temp_bcind(obj.deltas<obj.sep_cutoff)=0;
             N=length(temp_bcind);
             
             neg_bcs=cell(1,obj.num_masses);
@@ -278,7 +320,7 @@ classdef scd
                 end
 
                 neg_bcs{i}=obj.bcs(neg_cells,i); %this was already transformed using default cofactor
-                neg_cofactor(i)=obj.default_cofactor*sinh(prctile(neg_bcs{i},95)); %untransformed to raw data val
+                neg_cofactor(i)=obj.default_cofactor*sinh(prctile(neg_bcs{i},50)); %untransformed to raw data val
             end
             
             if any(isnan(neg_cofactor))
@@ -287,7 +329,7 @@ classdef scd
             end
             
             neg_cofactor(neg_cofactor<5)=5; %5 is default minimum
-            neg_cofactor(neg_cofactor>100)=100; %5 is default minimum
+            neg_cofactor(neg_cofactor>100)=100; %100 is default maximum ... maybe should lower
             obj.cofactors=neg_cofactor;
         end      
         

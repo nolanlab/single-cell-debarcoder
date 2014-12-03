@@ -589,6 +589,7 @@ handles.obj=handles.obj.normalize_bcs('bcs');
 %calculates normbcs from bcs
 
 handles.obj=handles.obj.compute_debarcoding;
+%calculates bcinds from normbcs
 
 %% 20140904 -- main cofactor update 
 handles.obj=handles.obj.calculate_cofactors; 
