@@ -394,9 +394,9 @@ classdef scd
                 
                 obj = obj.load_bcs; %uses default cofactor
                 
-                obj = obj.recofactor; %creates updated cofactored_bcs
-                
-                obj = obj.normalize_bcs('cofactored_bcs');
+                obj = obj.compute_debarcoding('bcs');   
+                               
+                obj = obj.normalize_by_pop;
                 
                 obj = obj.compute_debarcoding;
                 
