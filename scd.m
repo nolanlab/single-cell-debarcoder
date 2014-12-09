@@ -327,9 +327,13 @@ classdef scd
             end
         end
         
-        function obj=calculate_cofactors(obj)
+        function obj=calculate_cofactors(obj,percentile)
             % determine a cofactor for each bc channel by pooling the negative barcodes
             % for that channel across the populations
+            
+            if nargin<2
+                percentile=50;
+            end
             
             temp_bcind=obj.bcind;
 %             temp_bcind(obj.deltas<obj.sep_cutoff)=0;
@@ -346,7 +350,7 @@ classdef scd
                 end
 
                 neg_bcs{i}=obj.bcs(neg_cells,i); %this was already transformed using default cofactor
-                neg_cofactor(i)=obj.default_cofactor*sinh(prctile(neg_bcs{i},50)); %untransformed to raw data val
+                neg_cofactor(i)=obj.default_cofactor*sinh(prctile(neg_bcs{i},percentile)); %untransformed to raw data val
             end
             
             if any(isnan(neg_cofactor))
