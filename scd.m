@@ -390,19 +390,6 @@ classdef scd
             %unassigned events. save in the directory
             %outdir.
             
-            if obj.sample_ratio<1 %need to load in all bcs because sampled before
-                
-                obj = obj.load_bcs; %uses default cofactor
-                
-                obj = obj.compute_debarcoding('bcs');   
-                               
-                obj = obj.normalize_by_pop;
-                
-                obj = obj.compute_debarcoding;
-                
-                obj = obj.compute_mahal;
-                
-            end
             
             % write an fcs file for each barcode
             not_inawell=true(size(obj.bcind));
