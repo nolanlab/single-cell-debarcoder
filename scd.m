@@ -51,8 +51,8 @@ classdef scd
             obj.xtl=axticks.xtl;
             obj.raw_xl=[-10, 10000];
             obj.raw_xt=axticks.xt;
-            obj.default_xl=bmtrans(obj.raw_xl,obj.default_cofactor);
-            obj.default_xt=bmtrans(obj.raw_xt,obj.default_cofactor);
+            obj.default_xl=scd.bmtrans(obj.raw_xl,obj.default_cofactor);
+            obj.default_xt=scd.bmtrans(obj.raw_xt,obj.default_cofactor);
             
             %path to barcode key
             [pathstr, name, ext]=fileparts(key_filename);
@@ -83,7 +83,7 @@ classdef scd
             %it clears and updates?
             
             % if don't recofactor
-            obj.cofactored_xt=repmat(bmtrans(obj.raw_xt,obj.default_cofactor),[1 obj.num_masses]);
+            obj.cofactored_xt=repmat(scd.bmtrans(obj.raw_xt,obj.default_cofactor),[1 obj.num_masses]);
             obj.cofactored_xl=obj.cofactored_xt([1 end],:);
             obj.cofactors=repmat(obj.default_cofactor,[1 obj.num_masses]);
             
@@ -162,7 +162,7 @@ classdef scd
 %             for i=1:obj.num_masses
 %                 obj.bcs(:,i)=bmtrans(obj.bcs(:,i),obj.cofactors(i));
 %             end
-            obj.bcs=bmtrans(obj.bcs,obj.default_cofactor);
+            obj.bcs=scd.bmtrans(obj.bcs,obj.default_cofactor);
      
             %default, will change if recofactor
             obj.cofactored_bcs=obj.bcs;
@@ -372,7 +372,7 @@ classdef scd
             
             for i=1:obj.num_masses
                 cofactored_bcs(:,i)=asinh(obj.default_cofactor*sinh(obj.bcs(:,i))/obj.cofactors(i));
-                obj.cofactored_xt(:,i)=bmtrans(obj.raw_xt,obj.cofactors(i));
+                obj.cofactored_xt(:,i)=scd.bmtrans(obj.raw_xt,obj.cofactors(i));
             end
             obj.cofactored_xl=obj.cofactored_xt([1 end],:);
             
@@ -439,6 +439,7 @@ classdef scd
                     fca_writefcs([outdir filesep basename '_' obj.wellLabels{i} '.fcs'],data,obj.m,obj.c)
                 end
             end
+            
             
             % write fcs file of unassigned events
             data=obj.x(not_inawell,:);
