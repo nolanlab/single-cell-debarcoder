@@ -385,6 +385,20 @@ if PathName ~= 0
     set(handles.parent,'pointer','watch')
     drawnow
     
+    if handles.obj.sample_ratio<1 %need to load in all bcs because sampled before
+        
+        handles.obj = handles.obj.load_bcs; %uses default cofactor
+        
+        handles.obj = handles.obj.recofactor; %creates updated cofactored_bcs
+        
+        handles.obj = handles.obj.normalize_bcs('cofactored_bcs');
+        
+        handles.obj = handles.obj.compute_debarcoding;
+        
+        handles.obj = handles.obj.compute_mahal;
+        
+    end
+   
     handles.obj.write_bc_fcs_files(PathName,FileName)
 
     % write log file of debarcoding process

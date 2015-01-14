@@ -428,19 +428,6 @@ classdef scd
                 'Barcode separation threshold = ',obj.sep_cutoff,...
                 'Mahalanobis distance threshold = ',obj.mahal_cutoff_val)
             
-            if obj.sample_ratio<1 %need to load in all bcs because sampled before
-                
-                obj = obj.load_bcs; %uses default cofactor
-                
-                obj = obj.recofactor; %creates updated cofactored_bcs
-                
-                obj = obj.normalize_bcs('cofactored_bcs');
-                
-                obj = obj.compute_debarcoding;
-                
-                obj = obj.compute_mahal;
-                
-            end
             
             % write an fcs file for each barcode
             not_inawell=true(size(obj.bcind));
@@ -452,6 +439,7 @@ classdef scd
                     fca_writefcs([outdir filesep basename '_' obj.wellLabels{i} '.fcs'],data,obj.m,obj.c)
                 end
             end
+            
             
             % write fcs file of unassigned events
             data=obj.x(not_inawell,:);
