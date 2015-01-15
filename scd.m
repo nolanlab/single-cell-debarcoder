@@ -282,7 +282,8 @@ classdef scd
                 lowests=data(sub2ind(size(obj.bcs),indlist,betws));  %normalized transformed values of lowest 'positive' BC
                 
                 betws=ix(sub2ind(size(ix),indlist,locs(:,1))); % columns of highest barcode that is below the largest separation in each event
-                nextlowests=data(sub2ind(size(obj.bcs),indlist,betws)); %normalized transformed values of highest 'negative' BC
+                indsabove=sub2ind(size(obj.bcs),indlist,betws);
+                nextlowests=data(indsabove); %normalized transformed values of highest 'negative' BC
                 
                 toolow=find(obj.bcs(indsabove)<cutoff);  %these aren't high enough to count.  go to next-biggest-sep. using actual bcs here, not normalized
                 
@@ -299,8 +300,8 @@ classdef scd
                 betws=ix(sub2ind(size(ix),toolow,locs(toolow,2)));
                 inds=sub2ind(size(obj.bcs),toolow,betws);
                 
-                modifiednextlowests2=data(inds);
-                nextlowests(toolow(highernow))=nextlowests2(highernow);
+                modifiednextlowests=data(inds);
+                nextlowests(toolow(highernow))=modifiednextlowests(highernow);
                 nextlowests(toolow(~highernow))=nan;
                 
                 deltas=lowests-nextlowests;  %separation between 'positive' and 'negative' barcodes for each cell
