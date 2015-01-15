@@ -384,9 +384,11 @@ if PathName ~= 0
     
     set(handles.parent,'pointer','watch')
     drawnow    
-   
-    if handles.obj.sample_ratio < 1 %need to load in all bcs because sampled before
        
+    if handles.obj.sample_ratio > 1 %need to load in all bcs because sampled before
+       
+        size(handles.obj.bcs)
+        
         handles.obj = handles.obj.load_bcs; %uses default cofactor
         
         handles.obj = handles.obj.compute_debarcoding('bcs');
@@ -397,6 +399,7 @@ if PathName ~= 0
         
         handles.obj = handles.obj.compute_mahal;
         
+        size(handles.obj.bcs)
     end
     
     handles.obj.write_bc_fcs_files(PathName,FileName)
