@@ -385,7 +385,7 @@ if PathName ~= 0
     set(handles.parent,'pointer','watch')
     drawnow
     
-    if handles.obj.sample_ratio<1 %need to load in all bcs because sampled before
+    if handles.obj.sample_ratio > 1 %need to load in all bcs because sampled before
         
         handles.obj = handles.obj.load_bcs; %uses default cofactor
         
