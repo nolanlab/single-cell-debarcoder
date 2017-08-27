@@ -68,9 +68,9 @@ classdef scd
             obj.key_filename=name;
             
             y=importdata(key_filename);
-            obj.masses=cellstr(num2str(y.data(1,:)'));
             
-            obj.masses=cellstr(num2str(y.data(1,:)'));
+            % - is left-align, so num2str will not left pad
+            obj.masses=cellstr(num2str(y.data(1,:)', '%-d'));
             obj.num_masses=length(obj.masses);
             obj.wellLabels=y.textdata(2:end);
             obj.num_codes=length(obj.wellLabels);
