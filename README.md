@@ -1,4 +1,4 @@
-The Matlab bead normalization tool is no longer actively supported.
+The Matlab debarcoding tool is no longer actively supported.
 We recommend using https://github.com/ParkerICI/premessa instead.
 
 ------------------------------------------------
